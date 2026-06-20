@@ -23,3 +23,31 @@ export function daysLeft(endAt) {
   const diff = new Date(endAt).getTime() - Date.now();
   return Math.ceil(diff / (1000 * 60 * 60 * 24));
 }
+
+// ── 백엔드 날짜/시간 포맷(YYMMDD / HHMM) 변환 ──
+// Date → 'YYMMDD'
+export function toApiDate(value) {
+  const d = new Date(value);
+  return `${pad(d.getFullYear() % 100)}${pad(d.getMonth() + 1)}${pad(d.getDate())}`;
+}
+
+// Date → 'HHMM'
+export function toApiTime(value) {
+  const d = new Date(value);
+  return `${pad(d.getHours())}${pad(d.getMinutes())}`;
+}
+
+// 'YYMMDD' + 'HHMM' → Date (없으면 null)
+export function fromApiDateTime(dt, tm) {
+  if (!dt || dt.length < 6) return null;
+  const year = 2000 + Number(dt.slice(0, 2));
+  const month = Number(dt.slice(2, 4)) - 1;
+  const day = Number(dt.slice(4, 6));
+  let hour = 0;
+  let min = 0;
+  if (tm && tm.length >= 4) {
+    hour = Number(tm.slice(0, 2));
+    min = Number(tm.slice(2, 4));
+  }
+  return new Date(year, month, day, hour, min);
+}

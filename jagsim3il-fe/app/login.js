@@ -12,6 +12,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Link } from 'expo-router';
 import { useAuthStore } from '../src/store/authStore';
+import { PasswordResetSheet } from '../components/PasswordResetSheet';
 
 export default function LoginScreen() {
   const login = useAuthStore((s) => s.login);
@@ -22,6 +23,7 @@ export default function LoginScreen() {
   const [identifier, setIdentifier] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
+  const [resetVisible, setResetVisible] = useState(false);
 
   // 화면 진입 시 이전(회원가입 등) 에러 메시지 초기화
   useEffect(() => {
@@ -57,11 +59,11 @@ export default function LoginScreen() {
               resizeMode="contain"
             />
             <Text className="font-jua text-4xl text-ink">작심삼일</Text>
-            <Text className="mt-1 text-lg text-ink-muted">함께라면 삼일을 넘길 수 있어요</Text>
+            <Text className="font-gowunDodum mt-1 text-lg text-ink-muted">함께라면 삼일을 넘길 수 있어요</Text>
           </View>
 
           {/* 아이디 또는 이메일 */}
-          <Text className="mb-2 text-lg font-semibold text-ink">아이디 또는 이메일</Text>
+          <Text className="font-gowunDodum mb-2 text-lg font-semibold text-ink">아이디 또는 이메일</Text>
           <TextInput
             value={identifier}
             onChangeText={setIdentifier}
@@ -72,7 +74,7 @@ export default function LoginScreen() {
           />
 
           {/* 비밀번호 */}
-          <Text className="mb-2 text-lg font-semibold text-ink">비밀번호</Text>
+          <Text className="font-gowunDodum mb-2 text-lg font-semibold text-ink">비밀번호</Text>
           <TextInput
             value={password}
             onChangeText={setPassword}
@@ -99,7 +101,7 @@ export default function LoginScreen() {
             {loading ? (
               <ActivityIndicator color="white" />
             ) : (
-              <Text className="text-xl font-bold text-white">로그인</Text>
+              <Text className="font-jua text-xl font-bold text-white">로그인</Text>
             )}
           </Pressable>
 
@@ -115,14 +117,18 @@ export default function LoginScreen() {
 
           <View className="mt-4 flex-row items-center justify-center">
             <Text className="text-sm text-ink-muted">비밀번호를 잊으셨나요?</Text>
-            <Link href="/find-password" asChild>
-              <Pressable hitSlop={8}>
-                <Text className="ml-1 text-sm font-bold text-primary underline">비밀번호 찾기</Text>
-              </Pressable>
-            </Link>
+            <Pressable hitSlop={8} onPress={() => setResetVisible(true)}>
+              <Text className="ml-1 text-sm font-bold text-primary underline">비밀번호 찾기</Text>
+            </Pressable>
           </View>
         </View>
       </KeyboardAvoidingView>
+
+      {/* 비밀번호 찾기 (이메일 입력) 바텀시트 */}
+      <PasswordResetSheet
+        visible={resetVisible}
+        onClose={() => setResetVisible(false)}
+      />
     </SafeAreaView>
   );
 }

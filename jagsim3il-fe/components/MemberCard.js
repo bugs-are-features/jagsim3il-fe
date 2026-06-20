@@ -19,7 +19,7 @@ export function MemberCard({ member, isMe, onPickMedia }) {
       {/* 상단: 닉네임 (작고 연하게) */}
       <View className="flex-row items-center">
         <Avatar uri={member.avatar} nickname={member.nickname} size={20} />
-        <Text className="ml-1.5 text-xs text-ink-faint">
+        <Text className="font-gowunDodum ml-1.5 text-md text-ink-faint">
           {member.nickname}
           {isMe ? ' (나)' : ''}
         </Text>

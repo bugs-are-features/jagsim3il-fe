@@ -1,7 +1,8 @@
-import { Modal, View, Text, Pressable } from 'react-native';
+import { View, Text, Pressable } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { AvatarStack } from './Avatar';
+import { BottomSheet } from './BottomSheet';
 import { formatDateTime } from '../src/utils/date';
 
 function Row({ icon, label, value }) {
@@ -24,8 +25,7 @@ export function ChallengeDetailModal({ visible, onClose, challenge }) {
   if (!challenge) return null;
 
   return (
-    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
-      <View className="flex-1 justify-end bg-black/40">
+    <BottomSheet visible={visible} onClose={onClose}>
         <View
           className="rounded-t-3xl bg-white px-5 pt-3"
           style={{ paddingBottom: insets.bottom + 16 }}
@@ -52,7 +52,6 @@ export function ChallengeDetailModal({ visible, onClose, challenge }) {
             <AvatarStack members={challenge.members} size={30} max={6} />
           </View>
         </View>
-      </View>
-    </Modal>
+    </BottomSheet>
   );
 }

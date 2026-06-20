@@ -56,7 +56,7 @@ export default function OnboardingScreen() {
       <View className="h-12 flex-row items-center justify-end px-5">
         {!isLast && (
           <Pressable onPress={finish} hitSlop={8}>
-            <Text className="text-lg font-semibold text-ink-muted">건너뛰기</Text>
+            <Text className="font-gowunDodum text-lg font-semibold text-ink-muted">건너뛰기</Text>
           </Pressable>
         )}
       </View>
@@ -84,7 +84,7 @@ export default function OnboardingScreen() {
             <Text className="mb-4 text-center font-jua text-3xl text-ink">
               {title}
             </Text>
-            <Text className="text-center text-lg leading-6 text-ink-muted">
+            <Text className="font-gowunDodum text-center text-lg leading-6 text-ink-muted">
               {desc}
             </Text>
           </View>
@@ -109,7 +109,7 @@ export default function OnboardingScreen() {
           onPress={handleNext}
           className="items-center rounded-xl bg-primary py-4"
         >
-          <Text className="text-xl font-bold text-white">
+          <Text className="font-jua text-xl font-bold text-white">
             {isLast ? '시작하기' : '다음'}
           </Text>
         </Pressable>

@@ -155,7 +155,7 @@ export default function SignupScreen() {
           <Pressable onPress={() => router.back()} hitSlop={10} className="p-1">
             <Ionicons name="chevron-back" size={26} color="#1A1A2E" />
           </Pressable>
-          <Text className="ml-1 text-lg font-bold text-ink">회원가입</Text>
+          <Text className="font-jua ml-1 text-lg font-bold text-ink">회원가입</Text>
         </View>
 
         <ScrollView

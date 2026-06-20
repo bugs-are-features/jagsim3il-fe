@@ -33,6 +33,7 @@ export default function HomeScreen() {
     loadChallenges();
   }, []);
 
+  // 제목/설명으로 챌린지 생성 (일시/패널티는 입장 시 설정)
   const handleCreate = async (form) => {
     await addChallenge(form);
     setModalVisible(false);
@@ -41,7 +42,7 @@ export default function HomeScreen() {
   return (
     <SafeAreaView className="flex-1 bg-gray-50" edges={['top', 'left', 'right']}>
       {/* 헤더 */}
-      <View className="flex-row items-center justify-between px-5 pb-6 pt-2">
+      <View className="flex-row items-center justify-between px-5 pb-5 pt-2">
         <View className="flex-row items-center">
           <Image
             source={require('../assets/images/coin-badge-256.png')}
