@@ -2,7 +2,9 @@ import { useEffect, useState } from 'react';
 import { View, Text, TextInput, Pressable, ActivityIndicator } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import * as Clipboard from 'expo-clipboard';
 import { BottomSheet } from './BottomSheet';
+import { buildJoinToken } from '../src/api/challenges';
 
 // 응답에서 가입 코드 추출 (필드명 미확정 대비)
 function pickJoinCode(data) {
@@ -19,13 +21,24 @@ function pickJoinCode(data) {
 // 방장용 가입 코드 설정 바텀시트
 // onSave({ authYn, authCd }) → 응답(가입코드 포함) 반환
 // onRegenerate() → 응답(새 가입코드 포함) 반환
-export function JoinCodeSheet({ visible, onClose, initialCode, onSave, onRegenerate }) {
+export function JoinCodeSheet({ visible, onClose, chalId, initialCode, onSave, onRegenerate }) {
   const insets = useSafeAreaInsets();
   const [useAuth, setUseAuth] = useState(false);
   const [authCd, setAuthCd] = useState('');
   const [joinCode, setJoinCode] = useState(initialCode || '');
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
+  const [copied, setCopied] = useState(false);
+
+  // 참여자에게 공유할 코드 (chal_id + join_cd)
+  const shareToken = buildJoinToken(chalId, joinCode);
+
+  const copyShare = async () => {
+    if (!shareToken) return;
+    await Clipboard.setStringAsync(shareToken);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 1500);
+  };
 
   useEffect(() => {
     if (visible) {
@@ -42,10 +55,19 @@ export function JoinCodeSheet({ visible, onClose, initialCode, onSave, onRegener
     }
     setError('');
     setSubmitting(true);
-    const res = await onSave({ authYn: useAuth ? 'Y' : 'N', authCd });
-    setSubmitting(false);
-    const code = pickJoinCode(res);
-    if (code) setJoinCode(code);
+    // 코드가 없으면 "생성" → 생성된 코드를 보여줘야 하므로 닫지 않는다.
+    // 코드가 이미 있으면 "저장" → 저장 후 닫는다.
+    const isCreate = !joinCode;
+    try {
+      const res = await onSave({ authYn: useAuth ? 'Y' : 'N', authCd });
+      const code = pickJoinCode(res);
+      if (code) setJoinCode(code);
+      if (!isCreate) onClose(); // 저장일 때만 시트 닫기
+    } catch (e) {
+      setError(e?.message || '저장에 실패했어요.');
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   const handleRegenerate = async () => {
@@ -78,18 +100,46 @@ export function JoinCodeSheet({ visible, onClose, initialCode, onSave, onRegener
           멤버는 이 가입 코드로 챌린지에 참여할 수 있어요.
         </Text>
 
-        {/* 현재 가입 코드 */}
-        <View className="mb-4 items-center rounded-2xl border border-dashed border-primary/40 bg-primary-light/40 py-5">
-          {joinCode ? (
-            <Text className="font-jua text-3xl tracking-widest text-primary">
-              {joinCode}
+        {joinCode ? (
+          <>
+            {/* 멤버 초대 코드(공유용): chal_id + join_cd. 멤버는 이걸 그대로 입력 */}
+            <View className="mb-2 rounded-2xl border border-primary/40 bg-primary-light/40 p-4">
+              <Text className="font-gowunDodum text-sm font-semibold text-primary">
+                멤버 초대 코드 · 이 코드를 공유하세요
+              </Text>
+              <Text
+                selectable
+                className="font-gowunDodum mt-1.5 text-md leading-6 text-ink"
+              >
+                {shareToken}
+              </Text>
+              <Pressable
+                onPress={copyShare}
+                className="mt-3 flex-row items-center justify-center rounded-xl bg-primary py-3"
+              >
+                <Ionicons
+                  name={copied ? 'checkmark' : 'copy-outline'}
+                  size={18}
+                  color="white"
+                />
+                <Text className="ml-1.5 text-base font-bold text-white">
+                  {copied ? '복사됨' : '초대 코드 복사'}
+                </Text>
+              </Pressable>
+            </View>
+
+            {/* 참고용 가입 코드(raw) */}
+            <Text className="font-gowunDodum mb-4 px-1 text-xs text-ink-faint">
+              가입 코드: <Text className="font-bold text-ink-muted">{joinCode}</Text>
             </Text>
-          ) : (
+          </>
+        ) : (
+          <View className="mb-4 items-center rounded-2xl border border-dashed border-primary/40 bg-primary-light/40 py-5">
             <Text className="font-gowunDodum text-sm text-ink-faint">
               아직 가입 코드가 없어요. 생성해 주세요.
             </Text>
-          )}
-        </View>
+          </View>
+        )}
 
         {/* 인증 코드 사용 여부 */}
         <Pressable
@@ -104,11 +154,16 @@ export function JoinCodeSheet({ visible, onClose, initialCode, onSave, onRegener
               켜면 가입 코드와 4자리 인증 코드를 모두 입력해야 가입돼요.
             </Text>
           </View>
-          <Ionicons
-            name={useAuth ? 'toggle' : 'toggle-outline'}
-            size={36}
-            color={useAuth ? '#FF6A3D' : '#9CA3AF'}
-          />
+          {/* 커스텀 스위치: 노브가 좌우로 이동해 on/off가 명확함 */}
+          <View
+            className={`h-7 w-12 justify-center rounded-full px-0.5 ${
+              useAuth ? 'bg-primary' : 'bg-gray-300'
+            }`}
+          >
+            <View
+              className={`h-6 w-6 rounded-full bg-white ${useAuth ? 'self-end' : 'self-start'}`}
+            />
+          </View>
         </Pressable>
 
         {useAuth && (

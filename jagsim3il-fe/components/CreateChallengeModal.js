@@ -55,7 +55,7 @@ export function CreateChallengeModal({ visible, onClose, onCreate }) {
               </Pressable>
             </View>
 
-            <ScrollView showsVerticalScrollIndicator={false}>
+            <View showsVerticalScrollIndicator={false}>
               {/* 제목 */}
               <Text className="font-gowunDodum mb-2 mt-2 text-lg text-ink">챌린지 제목</Text>
               <TextInput
@@ -79,7 +79,7 @@ export function CreateChallengeModal({ visible, onClose, onCreate }) {
               <Text className="font-gowunDodum mb-2 mt-1 text-sm text-ink-faint">
                 시작·종료 일시와 패널티는 챌린지에 입장할 때 설정할 수 있어요.
               </Text>
-            </ScrollView>
+            </View>
 
             {/* 생성 버튼 */}
             <Pressable

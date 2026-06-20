@@ -114,7 +114,7 @@ export default function SettingsScreen() {
         </View>
 
         {/* 계정 */}
-        <Text className="font-gowunDodum px-5 pb-2 text-xs font-semibold text-ink-faint">계정</Text>
+        <Text className="font-jua px-5 pb-2 text-md font-semibold text-ink-faint">계정</Text>
         <View className="mb-3 overflow-hidden">
           <SettingRow icon="person-outline" label="프로필 수정" onPress={() => {}} />
           <View className="h-px bg-gray-100" />
@@ -122,7 +122,7 @@ export default function SettingsScreen() {
         </View>
 
         {/* 알림 */}
-        <Text className="font-gowunDodum px-5 pb-2 text-xs font-semibold text-ink-faint">알림</Text>
+        <Text className="font-jua px-5 pb-2 text-md font-semibold text-ink-faint">알림</Text>
         <View className="mb-3">
           <SettingRow
             icon="notifications-outline"
@@ -138,7 +138,7 @@ export default function SettingsScreen() {
         </View>
 
         {/* 기타 */}
-        <Text className="font-gowunDodum px-5 pb-2 text-xs font-semibold text-ink-faint">기타</Text>
+        <Text className="font-jua px-5 pb-2 text-md font-semibold text-ink-faint">기타</Text>
         <View className="mb-3">
           <SettingRow icon="information-circle-outline" label="버전" value="1.0.0" right={
             <Text className="font-gowunDodum text-sm text-ink-faint">1.0.0</Text>

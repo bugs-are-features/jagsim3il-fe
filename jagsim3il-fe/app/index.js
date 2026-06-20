@@ -28,6 +28,7 @@ export default function HomeScreen() {
   const loadChallenges = useChallengeStore((s) => s.loadChallenges);
   const refreshChallenges = useChallengeStore((s) => s.refreshChallenges);
   const addChallenge = useChallengeStore((s) => s.addChallenge);
+  const previewChallenge = useChallengeStore((s) => s.previewChallenge);
   const joinByCode = useChallengeStore((s) => s.joinByCode);
 
   const [modalVisible, setModalVisible] = useState(false);
@@ -151,6 +152,7 @@ export default function HomeScreen() {
       <JoinChallengeSheet
         visible={joinVisible}
         onClose={() => setJoinVisible(false)}
+        onPreview={({ chalId, joinCd }) => previewChallenge(chalId, joinCd)}
         onJoin={handleJoin}
       />
     </SafeAreaView>

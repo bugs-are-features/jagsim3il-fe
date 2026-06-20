@@ -72,17 +72,23 @@ export const useChallengeStore = create((set, get) => ({
     if (title != null) patch.title = title;
     if (description != null) patch.desc = description;
     if (penalty != null) patch.penalty_desc = penalty;
-    const updated = await updateChallengeApi(tk(), chalId, patch);
+    await updateChallengeApi(tk(), chalId, patch);
+    // 변경한 필드만 로컬 상태에 반영한다.
+    // PATCH 응답 전체로 덮어쓰면 joinCd/members/isOwner 등 응답에 없는 값이 사라진다.
+    const localPatch = {};
+    if (title != null) localPatch.title = title;
+    if (description != null) localPatch.description = description;
+    if (penalty != null) localPatch.penalty = penalty;
     set((state) => ({
       challenges: state.challenges.map((c) =>
-        c.id === chalId ? { ...c, ...updated } : c
+        c.id === chalId ? { ...c, ...localPatch } : c
       ),
       currentChallenge:
         state.currentChallenge?.id === chalId
-          ? { ...state.currentChallenge, ...updated }
+          ? { ...state.currentChallenge, ...localPatch }
           : state.currentChallenge,
     }));
-    return updated;
+    return localPatch;
   },
 
   // 시작: Date 객체 두 개 → YYMMDD/HHMM 변환 후 POST /start
@@ -93,6 +99,11 @@ export const useChallengeStore = create((set, get) => ({
       end_dt: toApiDate(endDate),
       end_tm: toApiTime(endDate),
     });
+  },
+
+  // 가입 전 조회(미리보기): join_cd로 비멤버가 챌린지 정보를 조회
+  previewChallenge: async (chalId, joinCd) => {
+    return getChallenge(tk(), chalId, joinCd);
   },
 
   // 가입(코드 입력): { joinCd, authCd? }
@@ -146,15 +157,22 @@ export const useChallengeStore = create((set, get) => ({
         listPromises(token, chalId).catch(() => []),
         getMyPromise(token, chalId).catch(() => null),
       ]);
-      // 약속(desc)을 멤버에 병합해 목표로 표시
+      // 약속(desc)을 멤버에 병합해 목표로 표시.
+      // 멤버와 약속의 공통키는 로그인ID(member.loginId ↔ promise.loginId).
       const byUser = {};
       promises.forEach((p) => {
-        if (p?.userId) byUser[p.userId] = p;
+        if (p?.loginId != null) byUser[String(p.loginId)] = p;
       });
-      const merged = members.map((m) => ({
-        ...m,
-        goal: m.goal || byUser[m.userId]?.desc || '',
-      }));
+      const myLoginId = useAuthStore.getState().user?.username ?? null;
+      const merged = members.map((m) => {
+        const key = m.loginId != null ? String(m.loginId) : null;
+        let goal = m.goal || (key && byUser[key]?.desc) || '';
+        // 전체 약속 목록이 비어도 내 카드는 내 약속(/me)으로 채운다
+        if (!goal && myLoginId && key === String(myLoginId) && myPromise?.desc) {
+          goal = myPromise.desc;
+        }
+        return { ...m, goal };
+      });
       set({
         currentChallenge: challenge,
         members: merged,
@@ -182,6 +200,8 @@ export const useChallengeStore = create((set, get) => ({
     const media = {
       uri: asset.uri,
       type: asset.type === 'video' ? 'video' : 'image',
+      width: asset.width ?? null,
+      height: asset.height ?? null,
     };
     set((state) => ({
       members: state.members.map((m) =>

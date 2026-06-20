@@ -9,6 +9,7 @@ import {
   KeyboardAvoidingView,
   Platform,
   ActivityIndicator,
+  Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
@@ -19,6 +20,7 @@ import { ChallengeDetailModal } from '../../components/ChallengeDetailModal';
 import { PenaltyEditSheet } from '../../components/PenaltyEditSheet';
 import { StartChallengeSheet } from '../../components/StartChallengeSheet';
 import { JoinCodeSheet } from '../../components/JoinCodeSheet';
+import { PromiseEditSheet } from '../../components/PromiseEditSheet';
 import { useChallengeStore } from '../../src/store/challengeStore';
 import { useAuthStore } from '../../src/store/authStore';
 
@@ -50,6 +52,8 @@ export default function ChallengeScreen() {
   const setJoinInfo = useChallengeStore((s) => s.setJoinInfo);
   const regenerateJoinCode = useChallengeStore((s) => s.regenerateJoinCode);
   const setMemberMedia = useChallengeStore((s) => s.setMemberMedia);
+  const leaveChallenge = useChallengeStore((s) => s.leaveChallenge);
+  const loadChallenges = useChallengeStore((s) => s.loadChallenges);
 
   const [goal, setGoal] = useState('');
   const [certDays, setCertDays] = useState(ALL_DAYS);
@@ -57,6 +61,7 @@ export default function ChallengeScreen() {
   const [penaltyVisible, setPenaltyVisible] = useState(false);
   const [startVisible, setStartVisible] = useState(false);
   const [joinCodeVisible, setJoinCodeVisible] = useState(false);
+  const [promiseEditVisible, setPromiseEditVisible] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
   // 내 약속이 있으면 입장한 상태
@@ -77,10 +82,48 @@ export default function ChallengeScreen() {
     await loadChallengeDetail(challengeId);
   };
 
-  // 멤버가 "나"인지 판별: 서버 is_me 우선, 없으면 식별자 비교
-  const myIds = [user?.username, user?.id, user?.email, user?.raw?.id].filter(Boolean);
-  const isMine = (m) =>
-    m?.isMe === true || (m?.userId != null && myIds.includes(m.userId));
+  // 시작 전 비방장 멤버만 탈퇴 가능
+  const canLeave = hasJoined && !isOwner && !started;
+  // 시작 전이면 내 약속 수정 가능
+  const canEditPromise = hasJoined && !started;
+
+  const handleLeave = () => {
+    Alert.alert('챌린지 나가기', '정말 이 챌린지에서 나갈까요?', [
+      { text: '취소', style: 'cancel' },
+      {
+        text: '나가기',
+        style: 'destructive',
+        onPress: async () => {
+          await leaveChallenge(challengeId);
+          await loadChallenges();
+          setDetailVisible(false);
+          router.back();
+        },
+      },
+    ]);
+  };
+
+  // "내 카드" 판별 — 정확히 한 명만 나로 확정한다.
+  // 멤버의 매칭 키는 로그인ID(member.loginId). 로그인 사용자의 username이 로그인ID다.
+  const myIdSet = [
+    user?.username, // 로그인 ID (= 멤버 loginId)
+    user?.raw?.id,
+    user?.id,
+    user?.email,
+  ]
+    .filter((v) => v != null)
+    .map(String);
+
+  const myMember =
+    members.find((m) => m.isMe === true) || // 1) 서버가 알려주면 그대로
+    members.find((m) => m.loginId != null && myIdSet.includes(String(m.loginId))) || // 2) 로그인ID 매칭
+    members.find((m) => m.userId != null && myIdSet.includes(String(m.userId))) || // 3) UUID 매칭(대비)
+    (user?.nickname
+      ? members.find((m) => m.nickname === user.nickname) // 4) 최후: 닉네임 일치(한 명만)
+      : null) ||
+    null;
+
+  const isMine = (m) => !!myMember && m.id === myMember.id;
 
   useEffect(() => {
     loadChallengeDetail(challengeId);
@@ -210,16 +253,16 @@ export default function ChallengeScreen() {
           <Pressable onPress={() => router.back()} hitSlop={10} className="p-1">
             <Ionicons name="chevron-back" size={26} color="#1A1A2E" />
           </Pressable>
-          <Text className="font-jua ml-1 flex-1 text-xl font-bold text-ink" numberOfLines={1}>
+          <Text className="font-jua ml-1 flex-1 text-2xl font-bold text-ink" numberOfLines={1}>
             {currentChallenge?.title}
           </Text>
         </View>
         <Pressable
           onPress={() => setDetailVisible(true)}
           hitSlop={10}
-          className="h-9 w-9 items-center justify-center rounded-full bg-white"
+          className="h-12 w-12 items-center justify-center rounded-full bg-white"
         >
-          <Ionicons name="information-circle-outline" size={22} color="#FF6A3D" />
+          <Ionicons name="information-circle-outline" size={30} color="#FF6A3D" />
         </Pressable>
       </View>
 
@@ -227,9 +270,12 @@ export default function ChallengeScreen() {
       <FlatList
         data={members}
         keyExtractor={(item) => String(item.id)}
-        numColumns={2}
-        columnWrapperStyle={{ gap: 12, paddingHorizontal: 16 }}
-        contentContainerStyle={{ paddingTop: 8, paddingBottom: 120, gap: 12 }}
+        contentContainerStyle={{
+          paddingTop: 8,
+          paddingBottom: 120,
+          paddingHorizontal: 16,
+          gap: 12,
+        }}
         ListHeaderComponent={
           <View className="mb-1 px-1">
             {/* 방장 시작 준비: 약속 ✓ → 패널티 → 시작 */}
@@ -243,7 +289,7 @@ export default function ChallengeScreen() {
                 {/* 1. 약속 (입장 시 완료) */}
                 <View className="mt-3 flex-row items-center">
                   <Ionicons name="checkmark-circle" size={20} color="#FF6A3D" />
-                  <Text className="ml-2 text-sm font-semibold text-ink">약속 설정 완료</Text>
+                  <Text className="ml-2 font-jua text-sm text-ink">약속 설정 완료</Text>
                 </View>
 
                 {/* 2. 가입 코드 설정 */}
@@ -257,7 +303,7 @@ export default function ChallengeScreen() {
                       size={20}
                       color={joinCode ? '#FF6A3D' : '#9CA3AF'}
                     />
-                    <Text className="ml-2 flex-1 text-sm text-ink" numberOfLines={1}>
+                    <Text className="ml-2 font-gowunDodum flex-1 text-sm text-ink" numberOfLines={1}>
                       {joinCode ? `가입 코드 ${joinCode}` : '가입 코드 설정하기'}
                     </Text>
                   </View>
@@ -275,7 +321,7 @@ export default function ChallengeScreen() {
                       size={20}
                       color={hasPenalty ? '#FF6A3D' : '#9CA3AF'}
                     />
-                    <Text className="ml-2 flex-1 text-sm text-ink" numberOfLines={1}>
+                    <Text className="ml-2 font-gowunDodum flex-1 text-sm text-ink" numberOfLines={1}>
                       {hasPenalty ? currentChallenge.penalty : '패널티 설정하기'}
                     </Text>
                   </View>
@@ -302,9 +348,21 @@ export default function ChallengeScreen() {
               </View>
             ) : null}
 
-            <Text className="text-sm text-ink-muted">
-              멤버들의 목표와 인증을 확인해 보세요
-            </Text>
+            <View className="flex-row items-center justify-between">
+              <Text className="font-gowunDodum text-lg text-ink-muted">
+                멤버들의 목표와 인증을 확인해 보세요
+              </Text>
+              {canEditPromise ? (
+                <Pressable
+                  onPress={() => setPromiseEditVisible(true)}
+                  hitSlop={8}
+                  className="flex-row items-center rounded-full bg-white px-3 py-1.5"
+                >
+                  <Ionicons name="pencil" size={14} color="#FF6A3D" />
+                  <Text className="ml-1 text-xs font-semibold text-primary">약속 수정</Text>
+                </Pressable>
+              ) : null}
+            </View>
           </View>
         }
         renderItem={({ item }) => (
@@ -330,6 +388,8 @@ export default function ChallengeScreen() {
         visible={detailVisible}
         onClose={() => setDetailVisible(false)}
         challenge={currentChallenge}
+        canLeave={canLeave}
+        onLeave={handleLeave}
       />
 
       {/* 패널티 설정 (방장) */}
@@ -351,9 +411,19 @@ export default function ChallengeScreen() {
       <JoinCodeSheet
         visible={joinCodeVisible}
         onClose={() => setJoinCodeVisible(false)}
+        chalId={challengeId}
         initialCode={joinCode}
         onSave={(info) => setJoinInfo(challengeId, info)}
         onRegenerate={() => regenerateJoinCode(challengeId)}
+      />
+
+      {/* 내 약속 수정 (시작 전) */}
+      <PromiseEditSheet
+        visible={promiseEditVisible}
+        onClose={() => setPromiseEditVisible(false)}
+        initialDesc={myPromise?.desc}
+        initialCertDays={myPromise?.certDays}
+        onSave={(desc, days) => upsertPromise(challengeId, desc, days)}
       />
     </SafeAreaView>
   );

@@ -76,6 +76,8 @@ export function MediaUploader({ media, onPicked, editable = false }) {
         uri: asset.uri,
         // expo-image-picker asset.type: 'image' | 'video'
         type: asset.type === 'video' ? 'video' : 'image',
+        width: asset.width,
+        height: asset.height,
         fileName: asset.fileName,
         mimeType: asset.mimeType,
       });
@@ -94,13 +96,13 @@ export function MediaUploader({ media, onPicked, editable = false }) {
     ]);
   };
 
-  // 미디어가 있을 때: 미리보기
+  // 미디어가 있을 때: 미리보기 (항상 16:9 고정, cover로 채움)
   if (media?.uri) {
     return (
       <Pressable
         onPress={editable ? showChoice : undefined}
         disabled={!editable}
-        className="mt-2 h-32 w-full overflow-hidden rounded-xl bg-gray-100"
+        className="mt-2 aspect-[16/9] w-full overflow-hidden rounded-xl bg-gray-100"
       >
         {media.type === 'video' ? (
           <VideoPreview uri={media.uri} />
@@ -133,7 +135,7 @@ export function MediaUploader({ media, onPicked, editable = false }) {
     <Pressable
       onPress={editable ? showChoice : undefined}
       disabled={!editable || loading}
-      className={`mt-2 h-32 w-full items-center justify-center rounded-xl border border-dashed ${
+      className={`mt-2 aspect-[16/9] w-full items-center justify-center rounded-xl border border-dashed ${
         editable ? 'border-primary/40 bg-primary-light/40' : 'border-gray-200 bg-gray-50'
       }`}
     >
@@ -142,12 +144,12 @@ export function MediaUploader({ media, onPicked, editable = false }) {
       ) : editable ? (
         <>
           <Ionicons name="camera-outline" size={26} color="#FF6A3D" />
-          <Text className="mt-1 text-xs font-medium text-primary">인증 올리기</Text>
+          <Text className="mt-1 text-md font-gowunDodum font-medium text-primary">인증 올리기</Text>
         </>
       ) : (
         <>
           <Ionicons name="hourglass-outline" size={24} color="#9CA3AF" />
-          <Text className="mt-1 text-xs text-ink-faint">아직 인증 전</Text>
+          <Text className="mt-1 text-md font-gowunDodum text-ink-faint">아직 인증 전</Text>
         </>
       )}
     </Pressable>

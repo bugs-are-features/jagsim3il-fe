@@ -16,11 +16,11 @@ export function PenaltyBanner({ penalty, editable = false, onEdit }) {
     >
       <View className="flex-row items-center">
         <View className="mr-3 h-9 w-9 items-center justify-center rounded-full bg-white/15">
-          <Ionicons name="warning-outline" size={20} color="#FCD34D" />
+          <Ionicons name="warning-outline" className="-mt-1" size={20} color="#FCD34D" />
         </View>
         <View className="flex-1">
-          <Text className="text-xs font-medium text-white/60">패널티</Text>
-          <Text className="text-sm font-semibold text-white" numberOfLines={1}>
+          <Text className="text-lg font-jua font-medium text-white/60">패널티</Text>
+          <Text className="text- font-gowunDodum font-semibold text-white" numberOfLines={1}>
             {penalty || (editable ? '탭하여 패널티를 설정하세요' : '미설정')}
           </Text>
         </View>

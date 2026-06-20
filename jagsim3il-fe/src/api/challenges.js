@@ -50,14 +50,21 @@ export function normalizeChallenge(raw) {
 }
 
 // 백엔드 멤버 객체 → 앱 공통 형태
+// 실제 응답: { user_id(UUID), id(로그인ID), alias(닉네임), joined_at }
+// (멤버가 { user: {...} }로 중첩되는 변형도 함께 대응)
 export function normalizeMember(raw) {
   if (!raw || typeof raw !== 'object') return raw;
+  const u = raw.user ?? raw.member ?? {};
+  const uuid = raw.user_id ?? u.user_id ?? null; // 내부 식별자(UUID)
+  const loginId = raw.id ?? u.id ?? raw.login_id ?? null; // 로그인 ID(약속/유저 매칭 키)
   return {
-    id: raw.user_id ?? raw.id ?? raw.userId ?? null,
-    userId: raw.user_id ?? raw.userId ?? raw.id ?? null,
-    nickname: raw.alias ?? raw.nickname ?? raw.name ?? '',
-    avatar: raw.profile_url ?? raw.avatar ?? null,
-    goal: raw.promise_desc ?? raw.desc ?? raw.goal ?? '',
+    id: uuid ?? loginId ?? null, // 리스트 key (고유)
+    userId: uuid, // 업로드 등 내부 API용
+    loginId, // 약속/내 카드 매칭 키
+    nickname: raw.alias ?? raw.nickname ?? raw.name ?? u.alias ?? u.nickname ?? '',
+    avatar: raw.profile_url ?? raw.avatar ?? u.profile_url ?? u.avatar ?? null,
+    // 멤버 응답이 약속을 함께 주는 변형도 대응(기본은 promises로 병합)
+    goal: raw.promise_desc ?? raw.desc ?? raw.goal ?? raw.promise?.desc ?? '',
     media: raw.media ?? null,
     isMe: raw.is_me ?? raw.isMe ?? null, // 서버가 내려주면 사용
     raw,
@@ -65,14 +72,20 @@ export function normalizeMember(raw) {
 }
 
 // 백엔드 약속(promise) 객체 → 앱 공통 형태
+// 약속 목록 항목: { user: { id(로그인ID), alias }, promise: { desc, cert_days, ... } }
+// 내 약속(/promise/me)은 평면 객체: { desc, cert_days, promise_id, ... }
 export function normalizePromise(raw) {
   if (!raw || typeof raw !== 'object') return null;
+  const u = raw.user ?? {};
+  const p = raw.promise ?? raw; // 목록은 nested(promise), /me는 평면
   return {
-    userId: raw.user_id ?? raw.userId ?? null,
-    desc: raw.desc ?? '',
-    certDays: raw.cert_days ?? raw.certDays ?? null,
-    updatedAt: raw.updated_at ?? null,
-    createdAt: raw.created_at ?? null,
+    loginId: u.id ?? raw.user_id ?? raw.userId ?? null, // 멤버(loginId)와 매칭
+    nickname: u.alias ?? u.nickname ?? null,
+    desc: p.desc ?? p.promise_desc ?? p.content ?? '',
+    certDays: p.cert_days ?? p.certDays ?? null,
+    promiseId: p.promise_id ?? null,
+    updatedAt: p.updated_at ?? null,
+    createdAt: p.created_at ?? null,
     raw,
   };
 }
@@ -198,6 +211,22 @@ export async function listPenalties(token, chalId) {
 // 내 패널티  GET /api/v1/challenge/{chal_id}/penalties/me
 export async function getMyPenalty(token, chalId) {
   return request('GET', `${BASE}/${chalId}/penalties/me`, { token });
+}
+
+// ── 참여 코드(공유용) ────────────────────────────────────
+// 가입에는 chal_id + join_cd가 모두 필요한데 참여자는 chal_id를 알 수 없으므로,
+// 방장이 둘을 합친 "참여 코드"를 공유하고 참여자는 이를 입력한다.
+// 형식: "<chal_id>.<join_cd>"  (chal_id는 UUID, join_cd는 영숫자라 '.'로 안전 분리)
+export function buildJoinToken(chalId, joinCd) {
+  if (!chalId || !joinCd) return '';
+  return `${chalId}.${joinCd}`;
+}
+
+export function parseJoinToken(token) {
+  const t = (token || '').trim();
+  const i = t.indexOf('.');
+  if (i <= 0 || i === t.length - 1) return null;
+  return { chalId: t.slice(0, i), joinCd: t.slice(i + 1) };
 }
 
 // 패널티 프리셋 (생성/설정 UI에서 사용)

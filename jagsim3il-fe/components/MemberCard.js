@@ -7,7 +7,7 @@ import { MediaUploader } from './MediaUploader';
 export function MemberCard({ member, isMe, onPickMedia }) {
   return (
     <View
-      className="flex-1 rounded-2xl bg-white p-3"
+      className="w-full rounded-2xl bg-white p-3"
       style={{
         shadowColor: '#000',
         shadowOpacity: 0.05,
@@ -19,14 +19,14 @@ export function MemberCard({ member, isMe, onPickMedia }) {
       {/* 상단: 닉네임 (작고 연하게) */}
       <View className="flex-row items-center">
         <Avatar uri={member.avatar} nickname={member.nickname} size={20} />
-        <Text className="font-gowunDodum ml-1.5 text-md text-ink-faint">
+        <Text className="font-gowunDodum ml-1.5 text-lg text-ink-faint">
           {member.nickname}
           {isMe ? ' (나)' : ''}
         </Text>
       </View>
 
       {/* 목표 텍스트 */}
-      <Text className="mt-1.5 text-sm font-semibold leading-5 text-ink" numberOfLines={3}>
+      <Text className="font-jua mt-1.5 text-lg font-semibold leading-5 text-ink" numberOfLines={3}>
         {member.goal}
       </Text>
 
