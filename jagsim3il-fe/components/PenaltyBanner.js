@@ -3,10 +3,12 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 
 // 챌린지 화면 하단 고정 패널티 배너 (항상 노출)
-// editable=true(방장)이면 탭하여 패널티를 설정할 수 있다.
-export function PenaltyBanner({ penalty, editable = false, onEdit }) {
+// editable=true(방장, 시작 전)이면 탭하여 패널티를 설정할 수 있다.
+// missedCount: 시작된 챌린지에서 내 누적 패널티(미인증) 횟수. null이면 미표시.
+export function PenaltyBanner({ penalty, editable = false, onEdit, missedCount = null }) {
   const insets = useSafeAreaInsets();
   const Wrapper = editable ? Pressable : View;
+  const showCount = missedCount != null;
 
   return (
     <Wrapper
@@ -24,9 +26,19 @@ export function PenaltyBanner({ penalty, editable = false, onEdit }) {
             {penalty || (editable ? '탭하여 패널티를 설정하세요' : '미설정')}
           </Text>
         </View>
-        {editable && (
+        {showCount ? (
+          // 내 누적 미인증 횟수 (패널티 발생 횟수)
+          <View
+            className={`ml-2 items-center rounded-xl px-3 py-1.5 ${
+              missedCount > 0 ? 'bg-red-500/90' : 'bg-white/15'
+            }`}
+          >
+            <Text className="font-jua text-lg font-bold text-white">{missedCount}회</Text>
+            <Text className="text-[10px] font-gowunDodum text-white/70">내 패널티</Text>
+          </View>
+        ) : editable ? (
           <Ionicons name="create-outline" size={20} color="rgba(255,255,255,0.7)" />
-        )}
+        ) : null}
       </View>
     </Wrapper>
   );

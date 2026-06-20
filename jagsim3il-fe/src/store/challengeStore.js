@@ -5,6 +5,7 @@ import {
   listChallenges,
   createChallenge,
   getChallenge,
+  lookupChallenge,
   updateChallenge as updateChallengeApi,
   startChallenge as startChallengeApi,
   joinChallenge as joinChallengeApi,
@@ -15,8 +16,20 @@ import {
   upsertMyPromise,
   upsertJoinInfo,
   regenerateJoinCd,
+  listAllCerts,
+  getMyPenalty,
+  createCert,
+  updateCert as updateCertApi,
 } from '../api/challenges';
-import { toApiDate, toApiTime } from '../utils/date';
+import { toApiDate, toApiTime, todayApiDateKST } from '../utils/date';
+
+// status가 preparing이 아니면 시작된(active/ended) 챌린지로 본다.
+function isStarted(challenge) {
+  return (
+    !!challenge?.startedAt ||
+    (!!challenge?.status && challenge.status !== 'preparing')
+  );
+}
 
 // 현재 로그인 토큰
 const tk = () => useAuthStore.getState().token;
@@ -31,6 +44,7 @@ export const useChallengeStore = create((set, get) => ({
   currentChallenge: null,
   members: [],
   myPromise: null, // 내 약속(목표). 없으면 아직 미입장(목표 미설정)
+  myPenalty: null, // 내 패널티 집계 { missedCount, uploadedCount, penaltyDesc } — 시작 후에만
   detailLoading: false,
 
   // ── 홈: 목록 ─────────────────────────────────────────────
@@ -106,6 +120,12 @@ export const useChallengeStore = create((set, get) => ({
     return getChallenge(tk(), chalId, joinCd);
   },
 
+  // 가입 코드만으로 챌린지 미리보기 조회(chal_id 불필요).
+  // 응답의 authYn으로 인증 코드 입력 필요 여부를 판단한다.
+  lookupByCode: async (joinCd) => {
+    return lookupChallenge(tk(), joinCd);
+  },
+
   // 가입(코드 입력): { joinCd, authCd? }
   joinByCode: async (chalId, joinCd, authCd) => {
     await joinChallengeApi(tk(), {
@@ -164,24 +184,68 @@ export const useChallengeStore = create((set, get) => ({
         if (p?.loginId != null) byUser[String(p.loginId)] = p;
       });
       const myLoginId = useAuthStore.getState().user?.username ?? null;
-      const merged = members.map((m) => {
+      let merged = members.map((m) => {
         const key = m.loginId != null ? String(m.loginId) : null;
         let goal = m.goal || (key && byUser[key]?.desc) || '';
         // 전체 약속 목록이 비어도 내 카드는 내 약속(/me)으로 채운다
         if (!goal && myLoginId && key === String(myLoginId) && myPromise?.desc) {
           goal = myPromise.desc;
         }
-        return { ...m, goal };
+        return { ...m, goal, todayCert: null };
       });
+
+      // 인증/패널티: 시작된(active/ended) 챌린지에서만 조회한다.
+      // (preparing 상태는 패널티 API가 막혀 있고 인증도 불가)
+      let myPenalty = null;
+      if (isStarted(challenge)) {
+        const today = todayApiDateKST();
+        const [allCerts, penalty] = await Promise.all([
+          listAllCerts(token, chalId, today, today).catch(() => []),
+          getMyPenalty(token, chalId).catch(() => null),
+        ]);
+        // loginId → 오늘 인증
+        const certByUser = {};
+        allCerts.forEach((row) => {
+          const key = row.member?.loginId != null ? String(row.member.loginId) : null;
+          if (!key) return;
+          certByUser[key] =
+            row.certs.find((c) => c.certDate === today) ?? row.certs[0] ?? null;
+        });
+        merged = merged.map((m) => {
+          const key = m.loginId != null ? String(m.loginId) : null;
+          return { ...m, todayCert: key ? certByUser[key] ?? null : null };
+        });
+        myPenalty = penalty;
+      }
+
       set({
         currentChallenge: challenge,
         members: merged,
         myPromise: myPromise?.desc ? myPromise : null,
+        myPenalty,
         detailLoading: false,
       });
     } catch {
       set({ detailLoading: false });
     }
+  },
+
+  // 오늘 인증 생성/수정 (텍스트 메모, 1~500자)
+  // 이미 오늘 uploaded 인증이 있으면 PATCH, 없으면 POST.
+  submitCert: async (chalId, content) => {
+    const today = todayApiDateKST();
+    const myLoginId = useAuthStore.getState().user?.username ?? null;
+    const me = get().members.find(
+      (m) => myLoginId != null && String(m.loginId) === String(myLoginId)
+    );
+    const hasToday = me?.todayCert?.status === 'uploaded';
+    if (hasToday) {
+      await updateCertApi(tk(), chalId, today, content);
+    } else {
+      await createCert(tk(), chalId, content);
+    }
+    // 인증 상태/패널티 갱신을 위해 상세를 다시 불러온다.
+    await get().loadChallengeDetail(chalId);
   },
 
   // 내 약속(목표) 생성/수정: desc + certDays({mon..sun})

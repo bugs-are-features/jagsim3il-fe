@@ -35,6 +35,8 @@ export function normalizeChallenge(raw) {
     endAt,
     status: raw.status ?? null, // preparing | (시작 후 상태)
     startedAt: raw.started_at ?? null,
+    // 가입 시 인증 코드 입력 필요 여부('Y'면 4자리 인증 코드 필요)
+    authYn: raw.auth_yn ?? null,
     // 백엔드가 내려주는 권한/멤버십 플래그
     isOwner: raw.is_owner ?? false,
     isMember: raw.is_member ?? false,
@@ -90,6 +92,36 @@ export function normalizePromise(raw) {
   };
 }
 
+// 백엔드 인증(cert) 객체 → 앱 공통 형태
+// CertDto: { cert_date(YYYY-MM-DD), status(uploaded|missed), content, created_at, updated_at }
+export function normalizeCert(raw) {
+  if (!raw || typeof raw !== 'object') return null;
+  return {
+    certDate: raw.cert_date ?? raw.certDate ?? null,
+    status: raw.status ?? null, // 'uploaded' | 'missed'
+    content: raw.content ?? null,
+    createdAt: raw.created_at ?? null,
+    updatedAt: raw.updated_at ?? null,
+    raw,
+  };
+}
+
+// 백엔드 패널티 집계 객체 → 앱 공통 형태
+// PenaltySummaryDto: { user_id, id, alias, missed_count, uploaded_count }
+// MyPenaltyDto: { missed_count, uploaded_count, penalty_desc }
+export function normalizePenalty(raw) {
+  if (!raw || typeof raw !== 'object') return null;
+  return {
+    userId: raw.user_id ?? null,
+    loginId: raw.id ?? null,
+    nickname: raw.alias ?? raw.nickname ?? null,
+    missedCount: raw.missed_count ?? raw.missedCount ?? 0,
+    uploadedCount: raw.uploaded_count ?? raw.uploadedCount ?? 0,
+    penaltyDesc: raw.penalty_desc ?? raw.penaltyDesc ?? null,
+    raw,
+  };
+}
+
 const BASE = '/api/v1/challenge';
 
 // ── 챌린지 ──────────────────────────────────────────────
@@ -103,6 +135,18 @@ export async function listChallenges(token, role = 'all') {
 // 챌린지 생성  POST /api/v1/challenge  { title, desc }
 export async function createChallenge(token, { title, desc }) {
   const data = await request('POST', BASE, { token, body: { title, desc } });
+  return normalizeChallenge(data);
+}
+
+// 가입 코드로 챌린지 미리보기 조회  GET /api/v1/challenge/lookup?join_cd=XXXX
+// 비멤버도 인증 코드(auth_cd) 없이 조회 가능. 응답(ChallengeLookupDto)에는
+// 가입 판단에 필요한 정보만 담긴다(기간/시작시각 등 민감 정보는 미포함).
+// { chal_id, title, desc, status, owner{id,alias}, member_count, auth_yn, is_member, is_owner }
+export async function lookupChallenge(token, joinCd) {
+  const data = await request('GET', `${BASE}/lookup`, {
+    token,
+    params: { join_cd: joinCd },
+  });
   return normalizeChallenge(data);
 }
 
@@ -178,39 +222,67 @@ export async function listPromises(token, chalId) {
 }
 
 // ── 인증(cert) ──────────────────────────────────────────
-// 인증 생성  POST /api/v1/challenge/{chal_id}/promise/me/cert  { content }
+// 인증 생성(당일)  POST /api/v1/challenge/{chal_id}/promise/me/cert  { content }
+// cert_date는 서버가 KST 오늘로 설정. content는 1~500자 텍스트 메모.
 export async function createCert(token, chalId, content) {
-  return request('POST', `${BASE}/${chalId}/promise/me/cert`, {
+  const data = await request('POST', `${BASE}/${chalId}/promise/me/cert`, {
     token,
     body: { content },
   });
+  return normalizeCert(data);
 }
 
-// 인증 수정  PATCH /api/v1/challenge/{chal_id}/promise/me/cert/{cert_date}  { content }
+// 당일 인증 수정  PATCH /api/v1/challenge/{chal_id}/promise/me/cert/{cert_date}  { content }
 export async function updateCert(token, chalId, certDate, content) {
-  return request('PATCH', `${BASE}/${chalId}/promise/me/cert/${certDate}`, {
+  const data = await request('PATCH', `${BASE}/${chalId}/promise/me/cert/${certDate}`, {
     token,
     body: { content },
   });
+  return normalizeCert(data);
 }
 
-// 내 인증 목록  GET /api/v1/challenge/{chal_id}/promise/me/certs?from=&to=
+// 내 인증 이력  GET /api/v1/challenge/{chal_id}/promise/me/certs?from=&to=
+// 응답 data: { certs: CertDto[] }
 export async function listMyCerts(token, chalId, from, to) {
-  return request('GET', `${BASE}/${chalId}/promise/me/certs`, {
+  const data = await request('GET', `${BASE}/${chalId}/promise/me/certs`, {
     token,
     params: { from, to },
   });
+  const arr = Array.isArray(data) ? data : data?.certs ?? data?.items ?? [];
+  return arr.map(normalizeCert);
+}
+
+// 챌린지 전체 인증 이력  GET /api/v1/challenge/{chal_id}/certs?from=&to=
+// 응답 data: { member_certs: [{ user: MemberDto, certs: CertDto[] }] }
+// 반환: [{ member(정규화), certs(정규화 배열) }]
+export async function listAllCerts(token, chalId, from, to) {
+  const data = await request('GET', `${BASE}/${chalId}/certs`, {
+    token,
+    params: { from, to },
+  });
+  const arr = Array.isArray(data)
+    ? data
+    : data?.member_certs ?? data?.memberCerts ?? data?.items ?? [];
+  return arr.map((row) => ({
+    member: normalizeMember(row.user ?? row.member ?? row),
+    certs: Array.isArray(row.certs) ? row.certs.map(normalizeCert) : [],
+  }));
 }
 
 // ── 패널티 ──────────────────────────────────────────────
-// 전체 패널티  GET /api/v1/challenge/{chal_id}/penalties
+// 멤버별 패널티 집계  GET /api/v1/challenge/{chal_id}/penalties  (status ≠ preparing)
+// 응답 data: { penalties: PenaltySummaryDto[] }
 export async function listPenalties(token, chalId) {
-  return request('GET', `${BASE}/${chalId}/penalties`, { token });
+  const data = await request('GET', `${BASE}/${chalId}/penalties`, { token });
+  const arr = Array.isArray(data) ? data : data?.penalties ?? data?.items ?? [];
+  return arr.map(normalizePenalty);
 }
 
-// 내 패널티  GET /api/v1/challenge/{chal_id}/penalties/me
+// 내 패널티 요약  GET /api/v1/challenge/{chal_id}/penalties/me  (status ≠ preparing)
+// 응답 data: MyPenaltyDto { missed_count, uploaded_count, penalty_desc }
 export async function getMyPenalty(token, chalId) {
-  return request('GET', `${BASE}/${chalId}/penalties/me`, { token });
+  const data = await request('GET', `${BASE}/${chalId}/penalties/me`, { token });
+  return normalizePenalty(data);
 }
 
 // ── 참여 코드(공유용) ────────────────────────────────────
@@ -219,7 +291,7 @@ export async function getMyPenalty(token, chalId) {
 // 형식: "<chal_id>.<join_cd>"  (chal_id는 UUID, join_cd는 영숫자라 '.'로 안전 분리)
 export function buildJoinToken(chalId, joinCd) {
   if (!chalId || !joinCd) return '';
-  return `${chalId}.${joinCd}`;
+  return `${joinCd}`;
 }
 
 export function parseJoinToken(token) {

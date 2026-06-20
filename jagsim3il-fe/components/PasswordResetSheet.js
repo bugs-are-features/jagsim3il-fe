@@ -3,6 +3,7 @@ import { View, Text, TextInput, Pressable, ActivityIndicator } from 'react-nativ
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { BottomSheet } from './BottomSheet';
+import { AlertModal } from './AlertModal';
 import { useAuthStore } from '../src/store/authStore';
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -14,14 +15,14 @@ export function PasswordResetSheet({ visible, onClose }) {
 
   const [email, setEmail] = useState('');
   const [submitting, setSubmitting] = useState(false);
-  const [message, setMessage] = useState(''); // 결과/검증 메시지
-  const [success, setSuccess] = useState(false);
+  const [message, setMessage] = useState(''); // 입력 검증 메시지 (인라인)
+  const [result, setResult] = useState(null); // 전송 결과 { success, message } → AlertModal
 
   const handleClose = () => {
     setEmail('');
     setMessage('');
-    setSuccess(false);
     setSubmitting(false);
+    setResult(null);
     onClose();
   };
 
@@ -29,7 +30,6 @@ export function PasswordResetSheet({ visible, onClose }) {
     if (submitting) return;
     const value = email.trim();
     if (!EMAIL_RE.test(value)) {
-      setSuccess(false);
       setMessage('올바른 이메일 형식이 아니에요.');
       return;
     }
@@ -37,8 +37,14 @@ export function PasswordResetSheet({ visible, onClose }) {
     setMessage('');
     const res = await passwordReset(value);
     setSubmitting(false);
-    setSuccess(res.ok);
-    setMessage(res.message);
+    setResult({ success: res.ok, message: res.message });
+  };
+
+  const handleResultClose = () => {
+    const ok = result?.success;
+    setResult(null);
+    // 성공한 경우 바텀시트까지 닫아 로그인 화면으로 복귀
+    if (ok) handleClose();
   };
 
   return (
@@ -78,11 +84,7 @@ export function PasswordResetSheet({ visible, onClose }) {
         />
 
         {message ? (
-          <Text
-            className={`mt-3 text-sm ${success ? 'text-primary' : 'text-red-500'}`}
-          >
-            {message}
-          </Text>
+          <Text className="mt-3 text-sm text-red-500">{message}</Text>
         ) : null}
 
         <Pressable
@@ -101,6 +103,15 @@ export function PasswordResetSheet({ visible, onClose }) {
           )}
         </Pressable>
       </View>
+
+      {/* 전송 결과 알럿 */}
+      <AlertModal
+        visible={!!result}
+        success={result?.success}
+        title={result?.success ? '메일을 보냈어요' : '전송에 실패했어요'}
+        message={result?.message}
+        onClose={handleResultClose}
+      />
     </BottomSheet>
   );
 }

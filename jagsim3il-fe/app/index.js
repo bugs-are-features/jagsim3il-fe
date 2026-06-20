@@ -28,7 +28,7 @@ export default function HomeScreen() {
   const loadChallenges = useChallengeStore((s) => s.loadChallenges);
   const refreshChallenges = useChallengeStore((s) => s.refreshChallenges);
   const addChallenge = useChallengeStore((s) => s.addChallenge);
-  const previewChallenge = useChallengeStore((s) => s.previewChallenge);
+  const lookupByCode = useChallengeStore((s) => s.lookupByCode);
   const joinByCode = useChallengeStore((s) => s.joinByCode);
 
   const [modalVisible, setModalVisible] = useState(false);
@@ -45,8 +45,11 @@ export default function HomeScreen() {
   };
 
   // 코드로 참여: 성공 시 목록 갱신 후 해당 챌린지로 이동
-  const handleJoin = async ({ chalId, joinCd, authCd }) => {
-    await joinByCode(chalId, joinCd, authCd);
+  // 이미 멤버인 경우 가입 호출 없이 바로 이동한다.
+  const handleJoin = async ({ chalId, joinCd, authCd, isMember }) => {
+    if (!isMember) {
+      await joinByCode(chalId, joinCd, authCd);
+    }
     await loadChallenges();
     router.push(`/challenge/${chalId}`);
   };
@@ -152,7 +155,7 @@ export default function HomeScreen() {
       <JoinChallengeSheet
         visible={joinVisible}
         onClose={() => setJoinVisible(false)}
-        onPreview={({ chalId, joinCd }) => previewChallenge(chalId, joinCd)}
+        onPreview={({ joinCd }) => lookupByCode(joinCd)}
         onJoin={handleJoin}
       />
     </SafeAreaView>

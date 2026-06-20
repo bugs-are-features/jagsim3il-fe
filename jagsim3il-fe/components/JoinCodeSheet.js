@@ -105,14 +105,23 @@ export function JoinCodeSheet({ visible, onClose, chalId, initialCode, onSave, o
             {/* 멤버 초대 코드(공유용): chal_id + join_cd. 멤버는 이걸 그대로 입력 */}
             <View className="mb-2 rounded-2xl border border-primary/40 bg-primary-light/40 p-4">
               <Text className="font-gowunDodum text-sm font-semibold text-primary">
-                멤버 초대 코드 · 이 코드를 공유하세요
+                챌린지 가입 코드 · 이 코드를 공유하세요
               </Text>
-              <Text
-                selectable
-                className="font-gowunDodum mt-1.5 text-md leading-6 text-ink"
-              >
-                {shareToken}
-              </Text>
+              <View className="mt-2 flex-row justify-between">
+                {shareToken
+                  .slice(0, 4)
+                  .padEnd(4, ' ')
+                  .split('')
+                  .map((ch, i) => (
+                    <View
+                      key={i}
+                      className="h-16 flex-1 items-center justify-center rounded-xl border border-primary/40 bg-white"
+                      style={{ marginLeft: i === 0 ? 0 : 8 }}
+                    >
+                      <Text className="font-jua text-3xl text-ink">{ch}</Text>
+                    </View>
+                  ))}
+              </View>
               <Pressable
                 onPress={copyShare}
                 className="mt-3 flex-row items-center justify-center rounded-xl bg-primary py-3"
@@ -156,9 +165,8 @@ export function JoinCodeSheet({ visible, onClose, chalId, initialCode, onSave, o
           </View>
           {/* 커스텀 스위치: 노브가 좌우로 이동해 on/off가 명확함 */}
           <View
-            className={`h-7 w-12 justify-center rounded-full px-0.5 ${
-              useAuth ? 'bg-primary' : 'bg-gray-300'
-            }`}
+            className={`h-7 w-12 justify-center rounded-full px-0.5 ${useAuth ? 'bg-primary' : 'bg-gray-300'
+              }`}
           >
             <View
               className={`h-6 w-6 rounded-full bg-white ${useAuth ? 'self-end' : 'self-start'}`}
@@ -186,9 +194,8 @@ export function JoinCodeSheet({ visible, onClose, chalId, initialCode, onSave, o
         <Pressable
           onPress={handleSave}
           disabled={submitting}
-          className={`mt-3 items-center rounded-xl py-4 ${
-            submitting ? 'bg-gray-300' : 'bg-primary'
-          }`}
+          className={`mt-3 items-center rounded-xl py-4 ${submitting ? 'bg-gray-300' : 'bg-primary'
+            }`}
         >
           {submitting ? (
             <ActivityIndicator color="white" />

@@ -21,8 +21,10 @@ import { PenaltyEditSheet } from '../../components/PenaltyEditSheet';
 import { StartChallengeSheet } from '../../components/StartChallengeSheet';
 import { JoinCodeSheet } from '../../components/JoinCodeSheet';
 import { PromiseEditSheet } from '../../components/PromiseEditSheet';
+import { CertSheet } from '../../components/CertSheet';
 import { useChallengeStore } from '../../src/store/challengeStore';
 import { useAuthStore } from '../../src/store/authStore';
+import { todayWeekdayKeyKST } from '../../src/utils/date';
 
 // 인증 요일 (월~일)
 const DAYS = [
@@ -44,9 +46,11 @@ export default function ChallengeScreen() {
   const currentChallenge = useChallengeStore((s) => s.currentChallenge);
   const members = useChallengeStore((s) => s.members);
   const myPromise = useChallengeStore((s) => s.myPromise);
+  const myPenalty = useChallengeStore((s) => s.myPenalty);
   const detailLoading = useChallengeStore((s) => s.detailLoading);
   const loadChallengeDetail = useChallengeStore((s) => s.loadChallengeDetail);
   const upsertPromise = useChallengeStore((s) => s.upsertPromise);
+  const submitCert = useChallengeStore((s) => s.submitCert);
   const updateChallenge = useChallengeStore((s) => s.updateChallenge);
   const startChallenge = useChallengeStore((s) => s.startChallenge);
   const setJoinInfo = useChallengeStore((s) => s.setJoinInfo);
@@ -62,6 +66,7 @@ export default function ChallengeScreen() {
   const [startVisible, setStartVisible] = useState(false);
   const [joinCodeVisible, setJoinCodeVisible] = useState(false);
   const [promiseEditVisible, setPromiseEditVisible] = useState(false);
+  const [certVisible, setCertVisible] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
   // 내 약속이 있으면 입장한 상태
@@ -72,6 +77,10 @@ export default function ChallengeScreen() {
   const started =
     !!currentChallenge?.startedAt ||
     (!!currentChallenge?.status && currentChallenge.status !== 'preparing');
+  const status = currentChallenge?.status ?? 'preparing';
+  // 오늘이 내 약속 기준 인증 요일인지 (KST)
+  const todayKey = todayWeekdayKeyKST();
+  const todayIsCertDay = !!(myPromise?.certDays && todayKey && myPromise.certDays[todayKey]);
   const hasPenalty = !!currentChallenge?.penalty;
   // 가입 코드 (정규화된 joinCd 또는 설정 후 병합된 값)
   const joinCode =
@@ -80,6 +89,32 @@ export default function ChallengeScreen() {
   const handleStart = async (s, e) => {
     await startChallenge(challengeId, s, e);
     await loadChallengeDetail(challengeId);
+  };
+
+  // 약속(목표)을 설정하지 않은 멤버 목록
+  const membersWithoutPromise = members.filter((m) => !m.goal?.trim());
+
+  // "챌린지 시작하기" 누름 → 약속 미설정 멤버가 있으면 퇴장 경고 후 시작 시트로 진행
+  const handleStartPress = () => {
+    if (membersWithoutPromise.length > 0) {
+      const list = membersWithoutPromise
+        .map((m) => `- ${m.nickname || '이름없음'}(미설정)`)
+        .join('\n');
+      Alert.alert(
+        '챌린지 시작',
+        `약속을 설정하지 않는 멤버는 퇴장처리 됩니다.\n챌린지를 시작하시겠습니까?\n${list}`,
+        [
+          { text: '취소', style: 'cancel' },
+          {
+            text: '시작하기',
+            style: 'destructive',
+            onPress: () => setStartVisible(true),
+          },
+        ]
+      );
+      return;
+    }
+    setStartVisible(true);
   };
 
   // 시작 전 비방장 멤버만 탈퇴 가능
@@ -139,6 +174,11 @@ export default function ChallengeScreen() {
     // 약속(목표 + 인증 요일) 등록 → 입장
     await upsertPromise(challengeId, goal.trim(), certDays);
     setSubmitting(false);
+  };
+
+  // 오늘 인증(텍스트) 저장 — 실패 시 에러를 시트에서 표시하도록 throw
+  const handleCertSave = async (content) => {
+    await submitCert(challengeId, content);
   };
 
   // 로딩 중
@@ -327,7 +367,7 @@ export default function ChallengeScreen() {
 
                 {/* 4. 챌린지 시작 */}
                 <Pressable
-                  onPress={() => setStartVisible(true)}
+                  onPress={handleStartPress}
                   disabled={!hasPenalty}
                   className={`mt-3 items-center rounded-xl py-3 ${
                     hasPenalty ? 'bg-primary' : 'bg-gray-300'
@@ -366,6 +406,10 @@ export default function ChallengeScreen() {
           <MemberCard
             member={item}
             isMe={isMine(item)}
+            started={started}
+            status={status}
+            todayIsCertDay={todayIsCertDay}
+            onWriteCert={() => setCertVisible(true)}
             onPickMedia={(memberId, asset) =>
               setMemberMedia(challengeId, memberId, asset)
             }
@@ -373,11 +417,12 @@ export default function ChallengeScreen() {
         )}
       />
 
-      {/* 하단 고정 패널티 배너 (시작 전 방장만 탭하여 설정) */}
+      {/* 하단 고정 패널티 배너 — 시작 전(방장)엔 설정, 시작 후엔 내 패널티 횟수 노출 */}
       <PenaltyBanner
         penalty={currentChallenge?.penalty}
         editable={isOwner && !started}
         onEdit={() => setPenaltyVisible(true)}
+        missedCount={started ? myPenalty?.missedCount ?? null : null}
       />
 
       {/* 챌린지 상세 모달 */}
@@ -421,6 +466,19 @@ export default function ChallengeScreen() {
         initialDesc={myPromise?.desc}
         initialCertDays={myPromise?.certDays}
         onSave={(desc, days) => upsertPromise(challengeId, desc, days)}
+      />
+
+      {/* 오늘 인증 작성/수정 (진행 중, 인증 요일) */}
+      <CertSheet
+        visible={certVisible}
+        onClose={() => setCertVisible(false)}
+        goal={myMember?.goal || myPromise?.desc}
+        initialContent={
+          myMember?.todayCert?.status === 'uploaded'
+            ? myMember.todayCert.content
+            : ''
+        }
+        onSave={handleCertSave}
       />
     </SafeAreaView>
   );
