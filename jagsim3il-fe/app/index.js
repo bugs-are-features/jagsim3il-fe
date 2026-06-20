@@ -7,12 +7,14 @@ import {
   RefreshControl,
   ActivityIndicator,
   Image,
+  Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { ChallengeCard } from '../components/ChallengeCard';
 import { CreateChallengeModal } from '../components/CreateChallengeModal';
+import { JoinChallengeSheet } from '../components/JoinChallengeSheet';
 import { useChallengeStore } from '../src/store/challengeStore';
 import { useAuthStore } from '../src/store/authStore';
 
@@ -26,8 +28,10 @@ export default function HomeScreen() {
   const loadChallenges = useChallengeStore((s) => s.loadChallenges);
   const refreshChallenges = useChallengeStore((s) => s.refreshChallenges);
   const addChallenge = useChallengeStore((s) => s.addChallenge);
+  const joinByCode = useChallengeStore((s) => s.joinByCode);
 
   const [modalVisible, setModalVisible] = useState(false);
+  const [joinVisible, setJoinVisible] = useState(false);
 
   useEffect(() => {
     loadChallenges();
@@ -37,6 +41,22 @@ export default function HomeScreen() {
   const handleCreate = async (form) => {
     await addChallenge(form);
     setModalVisible(false);
+  };
+
+  // 코드로 참여: 성공 시 목록 갱신 후 해당 챌린지로 이동
+  const handleJoin = async ({ chalId, joinCd, authCd }) => {
+    await joinByCode(chalId, joinCd, authCd);
+    await loadChallenges();
+    router.push(`/challenge/${chalId}`);
+  };
+
+  // + 버튼: 직접 만들기 / 코드로 참여 선택
+  const handleAdd = () => {
+    Alert.alert('챌린지', '어떻게 진행할까요?', [
+      { text: '챌린지 만들기', onPress: () => setModalVisible(true) },
+      { text: '코드로 참여하기', onPress: () => setJoinVisible(true) },
+      { text: '취소', style: 'cancel' },
+    ]);
   };
 
   return (
@@ -53,7 +73,7 @@ export default function HomeScreen() {
         </View>
         <View className="flex-row items-center">
           <Pressable
-            onPress={() => setModalVisible(true)}
+            onPress={handleAdd}
             hitSlop={8}
             className="mr-3 h-12 w-12 items-center justify-center rounded-full"
           >
@@ -112,6 +132,9 @@ export default function HomeScreen() {
               >
                 <Text className="font-bold text-white">첫 챌린지 만들기</Text>
               </Pressable>
+              <Pressable onPress={() => setJoinVisible(true)} className="mt-3">
+                <Text className="font-bold text-primary">코드로 참여하기</Text>
+              </Pressable>
             </View>
           }
         />
@@ -122,6 +145,13 @@ export default function HomeScreen() {
         visible={modalVisible}
         onClose={() => setModalVisible(false)}
         onCreate={handleCreate}
+      />
+
+      {/* 코드로 참여 시트 */}
+      <JoinChallengeSheet
+        visible={joinVisible}
+        onClose={() => setJoinVisible(false)}
+        onJoin={handleJoin}
       />
     </SafeAreaView>
   );

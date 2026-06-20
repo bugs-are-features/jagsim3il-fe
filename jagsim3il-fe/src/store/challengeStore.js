@@ -13,6 +13,8 @@ import {
   listPromises,
   getMyPromise,
   upsertMyPromise,
+  upsertJoinInfo,
+  regenerateJoinCd,
 } from '../api/challenges';
 import { toApiDate, toApiTime } from '../utils/date';
 
@@ -104,6 +106,33 @@ export const useChallengeStore = create((set, get) => ({
 
   leaveChallenge: async (chalId) => {
     await leaveChallengeApi(tk(), chalId);
+  },
+
+  // 가입 코드 설정(방장): { authYn: 'Y'|'N', authCd? } → 생성된 join_cd 반환
+  setJoinInfo: async (chalId, { authYn, authCd }) => {
+    const data = await upsertJoinInfo(tk(), chalId, {
+      auth_yn: authYn,
+      auth_cd: authYn === 'Y' ? authCd : undefined,
+    });
+    get()._mergeJoinCd(chalId, data?.join_cd);
+    return data;
+  },
+
+  // 가입 코드 재발급(방장)
+  regenerateJoinCode: async (chalId) => {
+    const data = await regenerateJoinCd(tk(), chalId);
+    get()._mergeJoinCd(chalId, data?.join_cd);
+    return data;
+  },
+
+  // 가입 코드를 현재 챌린지 상태에 반영
+  _mergeJoinCd: (chalId, joinCd) => {
+    if (!joinCd) return;
+    set((state) =>
+      state.currentChallenge?.id === chalId
+        ? { currentChallenge: { ...state.currentChallenge, joinCd } }
+        : {}
+    );
   },
 
   // ── 상세 ─────────────────────────────────────────────────

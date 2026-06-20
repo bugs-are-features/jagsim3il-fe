@@ -41,6 +41,7 @@ export function normalizeChallenge(raw) {
     // owner는 { id, alias } 객체
     ownerId: raw.owner?.id ?? raw.owner_id ?? raw.ownerId ?? null,
     ownerName: raw.owner?.alias ?? raw.owner?.name ?? null,
+    joinCd: raw.join_cd ?? raw.join_info?.join_cd ?? null,
     memberCount:
       raw.member_count ?? raw.member_cnt ?? raw.memberCount ?? members.length,
     members,

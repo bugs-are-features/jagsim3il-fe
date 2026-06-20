@@ -42,7 +42,7 @@ export function CreateChallengeModal({ visible, onClose, onCreate }) {
     <BottomSheet visible={visible} onClose={handleClose}>
           <View
             className="rounded-t-3xl bg-white px-5 pt-3"
-            style={{ paddingBottom: insets.bottom + 16, maxHeight: '90%' }}
+            style={{ paddingBottom: insets.bottom + 16 }}
           >
             {/* 핸들 + 헤더 */}
             <View className="mb-2 items-center">

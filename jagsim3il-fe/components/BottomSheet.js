@@ -62,7 +62,7 @@ export function BottomSheet({ visible, onClose, children }) {
         pointerEvents="box-none"
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       >
-        <Animated.View style={{ transform: [{ translateY }] }}>
+        <Animated.View style={{ maxHeight: '92%', transform: [{ translateY }] }}>
           {children}
         </Animated.View>
       </KeyboardAvoidingView>

@@ -18,6 +18,7 @@ import { PenaltyBanner } from '../../components/PenaltyBanner';
 import { ChallengeDetailModal } from '../../components/ChallengeDetailModal';
 import { PenaltyEditSheet } from '../../components/PenaltyEditSheet';
 import { StartChallengeSheet } from '../../components/StartChallengeSheet';
+import { JoinCodeSheet } from '../../components/JoinCodeSheet';
 import { useChallengeStore } from '../../src/store/challengeStore';
 import { useAuthStore } from '../../src/store/authStore';
 
@@ -47,6 +48,8 @@ export default function ChallengeScreen() {
   const upsertPromise = useChallengeStore((s) => s.upsertPromise);
   const updateChallenge = useChallengeStore((s) => s.updateChallenge);
   const startChallenge = useChallengeStore((s) => s.startChallenge);
+  const setJoinInfo = useChallengeStore((s) => s.setJoinInfo);
+  const regenerateJoinCode = useChallengeStore((s) => s.regenerateJoinCode);
   const setMemberMedia = useChallengeStore((s) => s.setMemberMedia);
 
   const [goal, setGoal] = useState('');
@@ -54,6 +57,7 @@ export default function ChallengeScreen() {
   const [detailVisible, setDetailVisible] = useState(false);
   const [penaltyVisible, setPenaltyVisible] = useState(false);
   const [startVisible, setStartVisible] = useState(false);
+  const [joinCodeVisible, setJoinCodeVisible] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
   // 내 약속이 있으면 입장한 상태
@@ -65,6 +69,9 @@ export default function ChallengeScreen() {
     !!currentChallenge?.startedAt ||
     (!!currentChallenge?.status && currentChallenge.status !== 'preparing');
   const hasPenalty = !!currentChallenge?.penalty;
+  // 가입 코드 (정규화된 joinCd 또는 설정 후 병합된 값)
+  const joinCode =
+    currentChallenge?.joinCd ?? currentChallenge?.raw?.join_cd ?? '';
 
   const handleStart = async (s, e) => {
     await startChallenge(challengeId, s, e);
@@ -235,7 +242,25 @@ export default function ChallengeScreen() {
                   <Text className="ml-2 text-sm font-semibold text-ink">약속 설정 완료</Text>
                 </View>
 
-                {/* 2. 패널티 설정 */}
+                {/* 2. 가입 코드 설정 */}
+                <Pressable
+                  onPress={() => setJoinCodeVisible(true)}
+                  className="mt-2 flex-row items-center justify-between rounded-xl border border-gray-200 px-3 py-3"
+                >
+                  <View className="flex-1 flex-row items-center">
+                    <Ionicons
+                      name={joinCode ? 'checkmark-circle' : 'ellipse-outline'}
+                      size={20}
+                      color={joinCode ? '#FF6A3D' : '#9CA3AF'}
+                    />
+                    <Text className="ml-2 flex-1 text-sm text-ink" numberOfLines={1}>
+                      {joinCode ? `가입 코드 ${joinCode}` : '가입 코드 설정하기'}
+                    </Text>
+                  </View>
+                  <Ionicons name="chevron-forward" size={18} color="#9CA3AF" />
+                </Pressable>
+
+                {/* 3. 패널티 설정 */}
                 <Pressable
                   onPress={() => setPenaltyVisible(true)}
                   className="mt-2 flex-row items-center justify-between rounded-xl border border-gray-200 px-3 py-3"
@@ -253,7 +278,7 @@ export default function ChallengeScreen() {
                   <Ionicons name="chevron-forward" size={18} color="#9CA3AF" />
                 </Pressable>
 
-                {/* 3. 챌린지 시작 */}
+                {/* 4. 챌린지 시작 */}
                 <Pressable
                   onPress={() => setStartVisible(true)}
                   disabled={!hasPenalty}
@@ -316,6 +341,15 @@ export default function ChallengeScreen() {
         visible={startVisible}
         onClose={() => setStartVisible(false)}
         onStart={handleStart}
+      />
+
+      {/* 가입 코드 설정 (방장) */}
+      <JoinCodeSheet
+        visible={joinCodeVisible}
+        onClose={() => setJoinCodeVisible(false)}
+        initialCode={joinCode}
+        onSave={(info) => setJoinInfo(challengeId, info)}
+        onRegenerate={() => regenerateJoinCode(challengeId)}
       />
     </SafeAreaView>
   );
