@@ -38,7 +38,6 @@ export default function ChallengeScreen() {
   const { challengeId } = useLocalSearchParams();
   const router = useRouter();
   const user = useAuthStore((s) => s.user);
-  const myUserId = user?.username;
 
   const currentChallenge = useChallengeStore((s) => s.currentChallenge);
   const members = useChallengeStore((s) => s.members);
@@ -77,6 +76,11 @@ export default function ChallengeScreen() {
     await startChallenge(challengeId, s, e);
     await loadChallengeDetail(challengeId);
   };
+
+  // 멤버가 "나"인지 판별: 서버 is_me 우선, 없으면 식별자 비교
+  const myIds = [user?.username, user?.id, user?.email, user?.raw?.id].filter(Boolean);
+  const isMine = (m) =>
+    m?.isMe === true || (m?.userId != null && myIds.includes(m.userId));
 
   useEffect(() => {
     loadChallengeDetail(challengeId);
@@ -306,7 +310,7 @@ export default function ChallengeScreen() {
         renderItem={({ item }) => (
           <MemberCard
             member={item}
-            isMe={item.userId === myUserId}
+            isMe={isMine(item)}
             onPickMedia={(memberId, asset) =>
               setMemberMedia(challengeId, memberId, asset)
             }

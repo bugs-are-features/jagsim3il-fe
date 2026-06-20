@@ -59,6 +59,7 @@ export function normalizeMember(raw) {
     avatar: raw.profile_url ?? raw.avatar ?? null,
     goal: raw.promise_desc ?? raw.desc ?? raw.goal ?? '',
     media: raw.media ?? null,
+    isMe: raw.is_me ?? raw.isMe ?? null, // 서버가 내려주면 사용
     raw,
   };
 }

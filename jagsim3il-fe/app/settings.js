@@ -13,11 +13,13 @@ function SettingRow({ icon, label, value, onPress, right }) {
     >
       <View className="flex-row items-center">
         <Ionicons name={icon} size={20} color="#FF6A3D" />
-        <Text className="ml-3 text-base text-ink">{label}</Text>
+        <Text className="font-gowunDodum ml-3 text-base text-ink">{label}</Text>
       </View>
       {right ?? (
         <View className="flex-row items-center">
-          {value ? <Text className="mr-1 text-sm text-ink-faint">{value}</Text> : null}
+          {value ? (
+            <Text className="font-gowunDodum mr-1 text-sm text-ink-faint">{value}</Text>
+          ) : null}
           <Ionicons name="chevron-forward" size={18} color="#9CA3AF" />
         </View>
       )}
@@ -77,7 +79,7 @@ export default function SettingsScreen() {
         <Pressable onPress={() => router.back()} hitSlop={10} className="p-1">
           <Ionicons name="chevron-back" size={26} color="#1A1A2E" />
         </Pressable>
-        <Text className="ml-1 text-lg font-bold text-ink">설정</Text>
+        <Text className="font-jua ml-1 text-2xl text-ink">설정</Text>
       </View>
 
       <ScrollView showsVerticalScrollIndicator={false}>
@@ -97,20 +99,22 @@ export default function SettingsScreen() {
             </View>
           )}
           <View className="ml-4 flex-1">
-            <Text className="text-lg font-bold text-ink">
+            <Text className="font-jua text-2xl text-ink">
               {user?.nickname || '회원'}
             </Text>
             {user?.email ? (
-              <Text className="text-sm text-ink-muted">{user.email}</Text>
+              <Text className="font-gowunDodum text-sm text-ink-muted">{user.email}</Text>
             ) : null}
             {user?.username ? (
-              <Text className="mt-0.5 text-xs text-ink-faint">@{user.username}</Text>
+              <Text className="font-gowunDodum mt-0.5 text-xs text-ink-faint">
+                @{user.username}
+              </Text>
             ) : null}
           </View>
         </View>
 
         {/* 계정 */}
-        <Text className="px-5 pb-2 text-xs font-semibold text-ink-faint">계정</Text>
+        <Text className="font-gowunDodum px-5 pb-2 text-xs font-semibold text-ink-faint">계정</Text>
         <View className="mb-3 overflow-hidden">
           <SettingRow icon="person-outline" label="프로필 수정" onPress={() => {}} />
           <View className="h-px bg-gray-100" />
@@ -118,7 +122,7 @@ export default function SettingsScreen() {
         </View>
 
         {/* 알림 */}
-        <Text className="px-5 pb-2 text-xs font-semibold text-ink-faint">알림</Text>
+        <Text className="font-gowunDodum px-5 pb-2 text-xs font-semibold text-ink-faint">알림</Text>
         <View className="mb-3">
           <SettingRow
             icon="notifications-outline"
@@ -134,10 +138,10 @@ export default function SettingsScreen() {
         </View>
 
         {/* 기타 */}
-        <Text className="px-5 pb-2 text-xs font-semibold text-ink-faint">기타</Text>
+        <Text className="font-gowunDodum px-5 pb-2 text-xs font-semibold text-ink-faint">기타</Text>
         <View className="mb-3">
           <SettingRow icon="information-circle-outline" label="버전" value="1.0.0" right={
-            <Text className="text-sm text-ink-faint">1.0.0</Text>
+            <Text className="font-gowunDodum text-sm text-ink-faint">1.0.0</Text>
           } />
           <View className="h-px bg-gray-100" />
           <SettingRow icon="document-text-outline" label="이용약관" onPress={() => {}} />
@@ -148,7 +152,7 @@ export default function SettingsScreen() {
           onPress={handleLogout}
           className="mx-5 mb-10 mt-2 items-center rounded-xl border border-red-200 bg-white py-4"
         >
-          <Text className="text-base font-bold text-red-500">로그아웃</Text>
+          <Text className="font-jua text-lg text-red-500">로그아웃</Text>
         </Pressable>
       </ScrollView>
     </SafeAreaView>

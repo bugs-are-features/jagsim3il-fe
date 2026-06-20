@@ -26,43 +26,64 @@ export function MediaUploader({ media, onPicked, editable = false }) {
   const [loading, setLoading] = useState(false);
 
   const pickFromGallery = async () => {
-    const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (!perm.granted) {
-      Alert.alert('권한 필요', '갤러리 접근 권한을 허용해 주세요.');
-      return;
+    try {
+      const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (!perm.granted) {
+        Alert.alert('권한 필요', '갤러리 접근 권한을 허용해 주세요.');
+        return;
+      }
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ['images', 'videos'],
+        quality: 0.8,
+      });
+      handleResult(result);
+    } catch (e) {
+      Alert.alert('갤러리 오류', e?.message || '갤러리를 열 수 없어요.');
     }
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ['images', 'videos'],
-      quality: 0.8,
-    });
-    handleResult(result);
   };
 
   const takeWithCamera = async () => {
-    const perm = await ImagePicker.requestCameraPermissionsAsync();
-    if (!perm.granted) {
-      Alert.alert('권한 필요', '카메라 접근 권한을 허용해 주세요.');
-      return;
+    try {
+      const perm = await ImagePicker.requestCameraPermissionsAsync();
+      if (!perm.granted) {
+        Alert.alert(
+          '권한 필요',
+          '카메라 접근 권한을 허용해 주세요. (설정 > 앱 권한에서 변경할 수 있어요)'
+        );
+        return;
+      }
+      const result = await ImagePicker.launchCameraAsync({
+        mediaTypes: ['images', 'videos'],
+        quality: 0.8,
+      });
+      handleResult(result);
+    } catch (e) {
+      // iOS 시뮬레이터에는 카메라가 없어 여기서 실패한다(실기기에서 테스트 필요).
+      Alert.alert(
+        '카메라 오류',
+        e?.message ||
+          '카메라를 사용할 수 없어요. 시뮬레이터/에뮬레이터에는 카메라가 없으니 실기기에서 시도해 주세요.'
+      );
     }
-    const result = await ImagePicker.launchCameraAsync({
-      mediaTypes: ['images', 'videos'],
-      quality: 0.8,
-    });
-    handleResult(result);
   };
 
   const handleResult = async (result) => {
     if (result.canceled || !result.assets?.length) return;
     const asset = result.assets[0];
     setLoading(true);
-    await onPicked({
-      uri: asset.uri,
-      // expo-image-picker asset.type: 'image' | 'video'
-      type: asset.type === 'video' ? 'video' : 'image',
-      fileName: asset.fileName,
-      mimeType: asset.mimeType,
-    });
-    setLoading(false);
+    try {
+      await onPicked({
+        uri: asset.uri,
+        // expo-image-picker asset.type: 'image' | 'video'
+        type: asset.type === 'video' ? 'video' : 'image',
+        fileName: asset.fileName,
+        mimeType: asset.mimeType,
+      });
+    } catch (e) {
+      Alert.alert('오류', e?.message || '미디어를 처리하지 못했어요.');
+    } finally {
+      setLoading(false);
+    }
   };
 
   const showChoice = () => {
@@ -94,9 +115,14 @@ export function MediaUploader({ media, onPicked, editable = false }) {
           </View>
         )}
         {editable && (
-          <View className="absolute right-2 top-2 rounded-full bg-black/50 px-2 py-1">
-            <Text className="text-xs text-white">변경</Text>
-          </View>
+          <>
+            <View className="absolute left-2 top-2 rounded-full bg-amber-500/90 px-2 py-1">
+              <Text className="text-xs font-semibold text-white">미저장</Text>
+            </View>
+            <View className="absolute right-2 top-2 rounded-full bg-black/50 px-2 py-1">
+              <Text className="text-xs text-white">변경</Text>
+            </View>
+          </>
         )}
       </Pressable>
     );
