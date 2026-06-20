@@ -1,24 +1,23 @@
 import { useRef, useState } from 'react';
-import { View, Text, Pressable } from 'react-native';
+import { View, Text, Pressable, Image } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import PagerView from 'react-native-pager-view';
-import { Target, Camera, Flame } from 'lucide-react-native';
+import { Camera, Flame } from 'lucide-react-native';
 import { useOnboardingStore } from '../src/store/onboardingStore';
 
-// 온보딩 슬라이드 데이터 (아이콘 + 문구)
 const SLIDES = [
   {
     key: 'goal',
-    Icon: Target,
-    title: '함께 목표를 세워요',
-    desc: '혼자선 작심삼일이지만,\n친구들과 함께라면 끝까지 갈 수 있어요.',
+    image: require('../assets/images/coin-badge-512.png'),
+    title: '작심삼일',
+    desc: '친구들과 함께 목표를 이뤄보세요.',
   },
   {
     key: 'verify',
     Icon: Camera,
-    title: '사진·영상으로 인증해요',
-    desc: '오늘의 목표를 사진이나 영상으로 남기고\n서로의 인증을 확인하세요.',
+    title: '혼자는 작심삼일,\n함께는 끝까지',
+    desc: '함께 목표를 수행해요.\n혼자 멈추기 어렵게, 함께 나아가요.',
   },
   {
     key: 'penalty',
@@ -57,7 +56,7 @@ export default function OnboardingScreen() {
       <View className="h-12 flex-row items-center justify-end px-5">
         {!isLast && (
           <Pressable onPress={finish} hitSlop={8}>
-            <Text className="text-sm font-semibold text-ink-muted">건너뛰기</Text>
+            <Text className="text-lg font-semibold text-ink-muted">건너뛰기</Text>
           </Pressable>
         )}
       </View>
@@ -69,15 +68,23 @@ export default function OnboardingScreen() {
         initialPage={0}
         onPageSelected={(e) => setPage(e.nativeEvent.position)}
       >
-        {SLIDES.map(({ key, Icon, title, desc }) => (
+        {SLIDES.map(({ key, Icon, image, title, desc }) => (
           <View key={key} className="flex-1 items-center justify-center px-8">
-            <View className="mb-10 h-32 w-32 items-center justify-center rounded-full bg-primary-light">
-              <Icon size={56} color="#5B5BD6" strokeWidth={1.8} />
-            </View>
-            <Text className="mb-4 text-center text-2xl font-extrabold text-ink">
+            {image ? (
+              <Image
+                source={image}
+                className="mb-10 h-32 w-32"
+                resizeMode="contain"
+              />
+            ) : (
+              <View className="mb-10 h-32 w-32 items-center justify-center rounded-full bg-primary-light">
+                <Icon size={56} color="#FF6A3D" strokeWidth={1.8} />
+              </View>
+            )}
+            <Text className="mb-4 text-center font-jua text-3xl text-ink">
               {title}
             </Text>
-            <Text className="text-center text-base leading-6 text-ink-muted">
+            <Text className="text-center text-lg leading-6 text-ink-muted">
               {desc}
             </Text>
           </View>
@@ -102,7 +109,7 @@ export default function OnboardingScreen() {
           onPress={handleNext}
           className="items-center rounded-xl bg-primary py-4"
         >
-          <Text className="text-base font-bold text-white">
+          <Text className="text-xl font-bold text-white">
             {isLast ? '시작하기' : '다음'}
           </Text>
         </Pressable>

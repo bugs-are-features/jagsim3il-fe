@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { View, Text, Pressable, Switch, Alert, Image, ScrollView } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
@@ -12,7 +12,7 @@ function SettingRow({ icon, label, value, onPress, right }) {
       className="flex-row items-center justify-between bg-white px-5 py-4 active:bg-gray-50"
     >
       <View className="flex-row items-center">
-        <Ionicons name={icon} size={20} color="#5B5BD6" />
+        <Ionicons name={icon} size={20} color="#FF6A3D" />
         <Text className="ml-3 text-base text-ink">{label}</Text>
       </View>
       {right ?? (
@@ -29,8 +29,15 @@ export default function SettingsScreen() {
   const router = useRouter();
   const user = useAuthStore((s) => s.user);
   const logout = useAuthStore((s) => s.logout);
+  const loadMe = useAuthStore((s) => s.loadMe);
+  const passwordReset = useAuthStore((s) => s.passwordReset);
 
   const [pushEnabled, setPushEnabled] = useState(true);
+
+  // 회원 정보가 비어 있으면 토큰으로 다시 조회
+  useEffect(() => {
+    loadMe();
+  }, [loadMe]);
 
   const handleLogout = () => {
     Alert.alert('로그아웃', '정말 로그아웃 하시겠어요?', [
@@ -38,12 +45,29 @@ export default function SettingsScreen() {
       {
         text: '로그아웃',
         style: 'destructive',
-        onPress: () => {
+        onPress: async () => {
           // 로그아웃 시 _layout의 Stack.Protected guard가 로그인 화면으로 리다이렉트한다.
-          logout();
+          const res = await logout();
+          Alert.alert('로그아웃', res.message);
         },
       },
     ]);
+  };
+
+  const handlePasswordReset = async () => {
+    if (!user?.email) {
+      Alert.alert('오류', '이메일 정보를 찾을 수 없습니다.');
+      return;
+    }
+
+    const res = await passwordReset(user.email);
+
+    if (res.ok) {
+      Alert.alert('비밀번호 재설정', res.message);
+    } else {
+      // 실패 시 서버 응답 메시지를 그대로 출력
+      Alert.alert('비밀번호 재설정 실패', res.message);
+    }
   };
 
   return (
@@ -57,16 +81,31 @@ export default function SettingsScreen() {
       </View>
 
       <ScrollView showsVerticalScrollIndicator={false}>
-        {/* 프로필 */}
+        {/* 프로필 (회원 정보) */}
         <View className="mb-3 flex-row items-center bg-white px-5 py-5">
-          <Image
-            source={{ uri: user?.avatar }}
-            className="h-16 w-16 rounded-full bg-gray-200"
-          />
-          <View className="ml-4">
-            <Text className="text-lg font-bold text-ink">{user?.nickname}</Text>
-            <Text className="text-sm text-ink-muted">{user?.email}</Text>
-            <Text className="mt-0.5 text-xs text-ink-faint">@{user?.username}</Text>
+          {user?.avatar ? (
+            <Image
+              source={{ uri: user.avatar }}
+              className="h-16 w-16 rounded-full bg-gray-200"
+            />
+          ) : (
+            // 아바타가 없으면 닉네임 첫 글자로 대체
+            <View className="h-16 w-16 items-center justify-center rounded-full bg-primary-light">
+              <Text className="text-2xl font-bold text-primary">
+                {(user?.nickname || user?.username || '?').charAt(0).toUpperCase()}
+              </Text>
+            </View>
+          )}
+          <View className="ml-4 flex-1">
+            <Text className="text-lg font-bold text-ink">
+              {user?.nickname || '회원'}
+            </Text>
+            {user?.email ? (
+              <Text className="text-sm text-ink-muted">{user.email}</Text>
+            ) : null}
+            {user?.username ? (
+              <Text className="mt-0.5 text-xs text-ink-faint">@{user.username}</Text>
+            ) : null}
           </View>
         </View>
 
@@ -75,7 +114,7 @@ export default function SettingsScreen() {
         <View className="mb-3 overflow-hidden">
           <SettingRow icon="person-outline" label="프로필 수정" onPress={() => {}} />
           <View className="h-px bg-gray-100" />
-          <SettingRow icon="lock-closed-outline" label="비밀번호 변경" onPress={() => {}} />
+          <SettingRow icon="lock-closed-outline" label="비밀번호 재설정" onPress={handlePasswordReset} />
         </View>
 
         {/* 알림 */}
@@ -88,7 +127,7 @@ export default function SettingsScreen() {
               <Switch
                 value={pushEnabled}
                 onValueChange={setPushEnabled}
-                trackColor={{ true: '#5B5BD6' }}
+                trackColor={{ true: '#FF6A3D' }}
               />
             }
           />

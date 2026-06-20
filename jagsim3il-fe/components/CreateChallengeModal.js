@@ -12,12 +12,12 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { DateTimeField } from './DateTimeField';
-import { penaltyPresets } from '../src/mocks/rooms';
+import { penaltyPresets } from '../src/mocks/challenges';
 
 const HOUR = 60 * 60 * 1000;
 
-// 홈 화면에서 열리는 "방 추가" 모달
-export function CreateRoomModal({ visible, onClose, onCreate }) {
+// 홈 화면에서 열리는 "챌린지 추가" 모달
+export function CreateChallengeModal({ visible, onClose, onCreate }) {
   const insets = useSafeAreaInsets();
 
   const [title, setTitle] = useState('');
@@ -63,8 +63,9 @@ export function CreateRoomModal({ visible, onClose, onCreate }) {
       transparent
       onRequestClose={handleClose}
     >
-      <View className="flex-1 justify-end bg-black/40">
+      <View className="flex-1 bg-black/40">
         <KeyboardAvoidingView
+          className="flex-1 justify-end"
           behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         >
           <View
@@ -76,7 +77,7 @@ export function CreateRoomModal({ visible, onClose, onCreate }) {
               <View className="h-1.5 w-10 rounded-full bg-gray-300" />
             </View>
             <View className="mb-2 flex-row items-center justify-between">
-              <Text className="text-xl font-bold text-ink">새로운 방 만들기</Text>
+              <Text className="font-jua text-3xl font-bold text-ink">새로운 챌린지 만들기</Text>
               <Pressable onPress={handleClose} hitSlop={10}>
                 <Ionicons name="close" size={24} color="#6B7280" />
               </Pressable>
@@ -84,36 +85,36 @@ export function CreateRoomModal({ visible, onClose, onCreate }) {
 
             <ScrollView showsVerticalScrollIndicator={false}>
               {/* 제목 */}
-              <Text className="mb-2 mt-2 text-sm font-semibold text-ink">방 제목</Text>
+              <Text className="font-gowunDodum mb-2 mt-2 text-lg text-ink">챌린지 제목</Text>
               <TextInput
                 value={title}
                 onChangeText={setTitle}
                 placeholder="예) 아침 6시 기상 챌린지"
                 placeholderTextColor="#9CA3AF"
-                className="mb-4 rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-base text-ink"
+                className="font-gowunDodum mb-4 rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-base text-ink"
               />
 
               {/* 설명 */}
-              <Text className="mb-2 text-sm font-semibold text-ink">설명</Text>
+              <Text className="font-gowunDodum mb-2 text-lg font-semibold text-ink">설명</Text>
               <TextInput
                 value={description}
                 onChangeText={setDescription}
-                placeholder="방에 대한 간단한 설명을 적어주세요"
+                placeholder="챌린지에 대한 간단한 설명을 적어주세요"
                 placeholderTextColor="#9CA3AF"
-                className="mb-4 rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-base text-ink"
+                className="font-gowunDodum mb-4 rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-base text-ink"
               />
 
               {/* 날짜/시간 */}
               <DateTimeField label="시작 일시" value={startAt} onChange={setStartAt} />
               <DateTimeField label="종료 일시" value={endAt} onChange={setEndAt} />
               {endAt <= startAt && (
-                <Text className="-mt-2 mb-3 text-xs text-red-500">
+                <Text className="font-gowunDodum -mt-2 mb-3 text-xs text-red-500">
                   종료 일시는 시작 일시 이후여야 해요.
                 </Text>
               )}
 
               {/* 패널티 */}
-              <Text className="mb-2 text-sm font-semibold text-ink">패널티</Text>
+              <Text className="font-gowunDodum mb-2 text-lg text-ink">패널티</Text>
               <View className="mb-3 flex-row flex-wrap">
                 {penaltyPresets.map((preset) => {
                   const active = penalty === preset;
@@ -155,8 +156,8 @@ export function CreateRoomModal({ visible, onClose, onCreate }) {
                 canSubmit && !submitting ? 'bg-primary' : 'bg-gray-300'
               }`}
             >
-              <Text className="text-base font-bold text-white">
-                {submitting ? '생성 중...' : '방 만들기'}
+              <Text className="text-xl font-jua font-bold text-white">
+                {submitting ? '생성 중...' : '챌린지 만들기'}
               </Text>
             </Pressable>
           </View>

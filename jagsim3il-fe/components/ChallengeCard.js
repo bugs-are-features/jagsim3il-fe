@@ -3,9 +3,9 @@ import { Ionicons } from '@expo/vector-icons';
 import { AvatarStack } from './Avatar';
 import { formatDate, daysLeft } from '../src/utils/date';
 
-// 홈 화면 방 카드
-export function RoomCard({ room, onPress }) {
-  const left = daysLeft(room.endAt);
+// 홈 화면 챌린지 카드
+export function ChallengeCard({ challenge, onPress }) {
+  const left = daysLeft(challenge.endAt);
 
   return (
     <Pressable
@@ -20,7 +20,7 @@ export function RoomCard({ room, onPress }) {
       }}
     >
       <View className="flex-row items-start justify-between">
-        <Text className="flex-1 pr-2 text-lg font-bold text-ink">{room.title}</Text>
+        <Text className="flex-1 pr-2 font-jua text-xl text-ink">{challenge.title}</Text>
         {left >= 0 ? (
           <View className="rounded-full bg-primary-light px-2.5 py-1">
             <Text className="text-xs font-semibold text-primary">D-{left}</Text>
@@ -32,23 +32,23 @@ export function RoomCard({ room, onPress }) {
         )}
       </View>
 
-      <Text className="mt-1 text-sm text-ink-muted" numberOfLines={2}>
-        {room.description}
+      <Text className="font-gowunDodum mt-1 text-md text-ink-muted" numberOfLines={2}>
+        {challenge.description}
       </Text>
 
       <View className="mt-3 flex-row items-center">
         <Ionicons name="calendar-outline" size={14} color="#9CA3AF" />
-        <Text className="ml-1 text-xs text-ink-faint">
-          {formatDate(room.startAt)} ~ {formatDate(room.endAt)}
+        <Text className="font-gowunDodum ml-1 text-sm text-ink-faint">
+          {formatDate(challenge.startAt)} ~ {formatDate(challenge.endAt)}
         </Text>
       </View>
 
       <View className="mt-3 flex-row items-center justify-between">
-        <AvatarStack members={room.members} size={30} />
+        <AvatarStack members={challenge.members} size={30} />
         <View className="flex-row items-center">
           <Ionicons name="people-outline" size={16} color="#6B7280" />
           <Text className="ml-1 text-sm font-medium text-ink-muted">
-            {room.memberCount}명
+            {challenge.memberCount}명
           </Text>
         </View>
       </View>

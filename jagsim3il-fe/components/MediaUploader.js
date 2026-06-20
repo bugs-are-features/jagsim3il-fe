@@ -112,10 +112,10 @@ export function MediaUploader({ media, onPicked, editable = false }) {
       }`}
     >
       {loading ? (
-        <ActivityIndicator color="#5B5BD6" />
+        <ActivityIndicator color="#FF6A3D" />
       ) : editable ? (
         <>
-          <Ionicons name="camera-outline" size={26} color="#5B5BD6" />
+          <Ionicons name="camera-outline" size={26} color="#FF6A3D" />
           <Text className="mt-1 text-xs font-medium text-primary">인증 올리기</Text>
         </>
       ) : (

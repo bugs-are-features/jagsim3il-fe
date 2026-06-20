@@ -14,46 +14,46 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { MemberCard } from '../../components/MemberCard';
 import { PenaltyBanner } from '../../components/PenaltyBanner';
-import { RoomDetailModal } from '../../components/RoomDetailModal';
-import { useRoomStore } from '../../src/store/roomStore';
+import { ChallengeDetailModal } from '../../components/ChallengeDetailModal';
+import { useChallengeStore } from '../../src/store/challengeStore';
 import { useAuthStore } from '../../src/store/authStore';
 import { daysLeft } from '../../src/utils/date';
 
-export default function RoomScreen() {
-  const { roomId } = useLocalSearchParams();
+export default function ChallengeScreen() {
+  const { challengeId } = useLocalSearchParams();
   const router = useRouter();
   const myUserId = useAuthStore((s) => s.user?.id);
 
-  const currentRoom = useRoomStore((s) => s.currentRoom);
-  const members = useRoomStore((s) => s.members);
-  const detailLoading = useRoomStore((s) => s.detailLoading);
-  const loadRoomDetail = useRoomStore((s) => s.loadRoomDetail);
-  const joinedRooms = useRoomStore((s) => s.joinedRooms);
-  const joinRoom = useRoomStore((s) => s.joinRoom);
-  const setMemberMedia = useRoomStore((s) => s.setMemberMedia);
+  const currentChallenge = useChallengeStore((s) => s.currentChallenge);
+  const members = useChallengeStore((s) => s.members);
+  const detailLoading = useChallengeStore((s) => s.detailLoading);
+  const loadChallengeDetail = useChallengeStore((s) => s.loadChallengeDetail);
+  const joinedChallenges = useChallengeStore((s) => s.joinedChallenges);
+  const joinChallenge = useChallengeStore((s) => s.joinChallenge);
+  const setMemberMedia = useChallengeStore((s) => s.setMemberMedia);
 
   const [goal, setGoal] = useState('');
   const [detailVisible, setDetailVisible] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
-  const hasJoined = !!joinedRooms[roomId];
+  const hasJoined = !!joinedChallenges[challengeId];
 
   useEffect(() => {
-    loadRoomDetail(roomId);
-  }, [roomId]);
+    loadChallengeDetail(challengeId);
+  }, [challengeId]);
 
   const handleEnter = async () => {
     if (!goal.trim() || submitting) return;
     setSubmitting(true);
-    await joinRoom(roomId, goal.trim());
+    await joinChallenge(challengeId, goal.trim());
     setSubmitting(false);
   };
 
   // 로딩 중
-  if (detailLoading && !currentRoom) {
+  if (detailLoading && !currentChallenge) {
     return (
       <SafeAreaView className="flex-1 items-center justify-center bg-white">
-        <ActivityIndicator color="#5B5BD6" />
+        <ActivityIndicator color="#FF6A3D" />
       </SafeAreaView>
     );
   }
@@ -72,14 +72,14 @@ export default function RoomScreen() {
               <Ionicons name="chevron-back" size={26} color="#1A1A2E" />
             </Pressable>
             <Text className="ml-1 text-lg font-bold text-ink" numberOfLines={1}>
-              {currentRoom?.title}
+              {currentChallenge?.title}
             </Text>
           </View>
 
           <View className="flex-1 px-6 pt-6">
             <View className="mb-6 self-start rounded-full bg-primary-light px-3 py-1.5">
               <Text className="text-xs font-semibold text-primary">
-                D-{daysLeft(currentRoom?.endAt)} · 목표 설정
+                D-{daysLeft(currentChallenge?.endAt)} · 목표 설정
               </Text>
             </View>
 
@@ -122,7 +122,7 @@ export default function RoomScreen() {
     );
   }
 
-  // ── 5-2. 이후 입장: 메인 방 화면 ──────────────────────────
+  // ── 5-2. 이후 입장: 메인 챌린지 화면 ──────────────────────────
   return (
     <SafeAreaView className="flex-1 bg-gray-50" edges={['top', 'left', 'right']}>
       {/* 헤더 */}
@@ -132,7 +132,7 @@ export default function RoomScreen() {
             <Ionicons name="chevron-back" size={26} color="#1A1A2E" />
           </Pressable>
           <Text className="ml-1 flex-1 text-lg font-bold text-ink" numberOfLines={1}>
-            {currentRoom?.title}
+            {currentChallenge?.title}
           </Text>
         </View>
         <Pressable
@@ -140,7 +140,7 @@ export default function RoomScreen() {
           hitSlop={10}
           className="h-9 w-9 items-center justify-center rounded-full bg-white"
         >
-          <Ionicons name="information-circle-outline" size={22} color="#5B5BD6" />
+          <Ionicons name="information-circle-outline" size={22} color="#FF6A3D" />
         </Pressable>
       </View>
 
@@ -163,20 +163,20 @@ export default function RoomScreen() {
             member={item}
             isMe={item.userId === myUserId}
             onPickMedia={(memberId, asset) =>
-              setMemberMedia(roomId, memberId, asset)
+              setMemberMedia(challengeId, memberId, asset)
             }
           />
         )}
       />
 
       {/* 하단 고정 패널티 배너 */}
-      <PenaltyBanner penalty={currentRoom?.penalty} />
+      <PenaltyBanner penalty={currentChallenge?.penalty} />
 
-      {/* 방 상세 모달 */}
-      <RoomDetailModal
+      {/* 챌린지 상세 모달 */}
+      <ChallengeDetailModal
         visible={detailVisible}
         onClose={() => setDetailVisible(false)}
-        room={currentRoom}
+        challenge={currentChallenge}
       />
     </SafeAreaView>
   );

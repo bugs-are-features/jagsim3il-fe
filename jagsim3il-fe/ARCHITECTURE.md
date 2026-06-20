@@ -248,3 +248,11 @@ npx expo start       # 개발 서버 실행
 
 > 참고: 카메라/갤러리 기능은 시뮬레이터보다 실제 디바이스(Expo Go 또는 dev build)에서 정상 동작합니다.
 > 권한 문구는 `app.json`의 `expo-image-picker`/`expo-camera` 플러그인에 한국어로 설정되어 있습니다.
+
+
+fontsize
+  title: 3xl
+  subTitle: 2xl
+  mainText: xl
+  subText: lg
+  button: lg

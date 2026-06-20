@@ -1,8 +1,8 @@
-// 방 멤버(RoomMember) mock 데이터
-// roomId 별로 멤버 목록을 가집니다.
-// 실제 API 연동 시 이 스키마가 응답(roomMembers) 형태의 기준이 됩니다.
+// 방 멤버(ChallengeMember) mock 데이터
+// challengeId 별로 멤버 목록을 가집니다.
+// 실제 API 연동 시 이 스키마가 응답(challengeMembers) 형태의 기준이 됩니다.
 //
-// RoomMember 스키마
+// ChallengeMember 스키마
 // - id:       string         방 멤버 고유 ID
 // - userId:   string         사용자 ID
 // - nickname: string         닉네임
@@ -14,7 +14,7 @@
 // - uri:  string             파일 경로/URL
 // - type: 'image' | 'video'  미디어 타입
 
-export const mockRoomMembers = {
+export const mockChallengeMembers = {
   r1: [
     {
       id: 'rm1',

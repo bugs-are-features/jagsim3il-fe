@@ -2,7 +2,7 @@
 // 첫 실행(온보딩 미시청) 여부를 판단하는 데 사용한다.
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-const ONBOARDING_KEY = '';
+const ONBOARDING_KEY = ''; // hasSeenOnboarding
 
 // 온보딩을 한 번이라도 끝까지 봤는지 여부 반환
 export async function getOnboardingSeen() {

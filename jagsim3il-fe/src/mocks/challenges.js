@@ -1,7 +1,7 @@
-// 방(Room) mock 데이터
-// 실제 API 연동 시 이 스키마가 응답(room) 형태의 기준이 됩니다.
+// 방(Challenge) mock 데이터
+// 실제 API 연동 시 이 스키마가 응답(challenge) 형태의 기준이 됩니다.
 //
-// Room 스키마
+// Challenge 스키마
 // - id:          string   방 고유 ID
 // - title:       string   방 제목
 // - description: string   방 설명/타이틀
@@ -16,7 +16,7 @@
 // - nickname: string  닉네임
 // - avatar:   string  프로필 이미지 URL
 
-export const mockRooms = [
+export const mockChallenges = [
   {
     id: 'r1',
     title: '아침 6시 기상 챌린지',

@@ -2,7 +2,7 @@ import { View, Text } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 
-// 방 화면 하단 고정 패널티 배너 (항상 노출)
+// 챌린지 화면 하단 고정 패널티 배너 (항상 노출)
 export function PenaltyBanner({ penalty }) {
   const insets = useSafeAreaInsets();
 

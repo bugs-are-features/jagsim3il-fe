@@ -2,7 +2,7 @@ import { View, Text } from 'react-native';
 import { Avatar } from './Avatar';
 import { MediaUploader } from './MediaUploader';
 
-// 방 화면 멤버 카드
+// 챌린지 화면 멤버 카드
 // isMe=true 이면 미디어 촬영/업로드 가능
 export function MemberCard({ member, isMe, onPickMedia }) {
   return (

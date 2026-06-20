@@ -14,13 +14,16 @@ import { useRouter, Link } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { Checkbox } from '../components/Checkbox';
 import { useAuthStore } from '../src/store/authStore';
+import { checkIdRequest, checkEmailRequest } from '../src/api/auth';
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+// 비밀번호: 8~32자, 영문·숫자·기호(!@#$%^&*) 모두 포함 (백엔드 규칙)
+const PW_RE = /^(?=.*[A-Za-z])(?=.*\d)(?=.*[!@#$%^&*])[A-Za-z\d!@#$%^&*]{8,32}$/;
 
 function Field({ label, error, ...props }) {
   return (
     <View className="mb-4">
-      <Text className="mb-2 text-sm font-semibold text-ink">{label}</Text>
+      <Text className="mb-2 text-lg font-semibold text-ink">{label}</Text>
       <TextInput
         placeholderTextColor="#9CA3AF"
         className={`rounded-xl border bg-gray-50 px-4 py-3.5 text-base text-ink ${
@@ -28,7 +31,7 @@ function Field({ label, error, ...props }) {
         }`}
         {...props}
       />
-      {error ? <Text className="mt-1 text-xs text-red-500">{error}</Text> : null}
+      {error ? <Text className="mt-1 text-sm text-red-500">{error}</Text> : null}
     </View>
   );
 }
@@ -48,6 +51,8 @@ export default function SignupScreen() {
   const [agreed, setAgreed] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [serverError, setServerError] = useState('');
+  const [fieldErrors, setFieldErrors] = useState({}); // 서버 중복확인 등 필드별 에러
+  const [done, setDone] = useState(false); // 가입 완료(이메일 인증 안내) 상태
 
   const set = (key) => (value) => setForm((f) => ({ ...f, [key]: value }));
 
@@ -62,8 +67,8 @@ export default function SignupScreen() {
       : '',
     password: !form.password
       ? '비밀번호를 입력해 주세요.'
-      : form.password.length < 4
-      ? '비밀번호는 4자 이상이어야 해요.'
+      : !PW_RE.test(form.password)
+      ? '8~32자, 영문·숫자·기호(!@#$%^&*)를 모두 포함해야 해요.'
       : '',
     passwordConfirm:
       form.password !== form.passwordConfirm ? '비밀번호가 일치하지 않아요.' : '',
@@ -74,19 +79,70 @@ export default function SignupScreen() {
   const handleSignup = async () => {
     setSubmitted(true);
     setServerError('');
+    setFieldErrors({});
     if (!isValid) return;
 
-    // 가입 성공 시 _layout의 Stack.Protected guard가 홈으로 리다이렉트한다.
+    const id = form.username.trim();
+    const email = form.email.trim();
+
+    // 1) 아이디/이메일 중복 확인
+    try {
+      const [idCheck, emailCheck] = await Promise.all([
+        checkIdRequest(id),
+        checkEmailRequest(email),
+      ]);
+      const fe = {};
+      if (!idCheck.available) fe.username = '이미 사용 중인 아이디입니다.';
+      if (!emailCheck.available) fe.email = '이미 사용 중인 이메일입니다.';
+      if (Object.keys(fe).length) {
+        setFieldErrors(fe);
+        return;
+      }
+    } catch (e) {
+      setServerError(e.message);
+      return;
+    }
+
+    // 2) 회원가입 요청 (성공해도 이메일 인증 전까지는 로그인 불가)
     const ok = await signup({
-      username: form.username.trim(),
-      nickname: form.nickname.trim(),
-      email: form.email.trim(),
-      password: form.password,
+      id,
+      pw: form.password,
+      alias: form.nickname.trim(),
+      email,
     });
-    if (!ok) {
-      setServerError('이미 사용 중인 아이디입니다.');
+    if (ok) {
+      setDone(true);
+    } else {
+      // store.error에 서버 메시지가 담겨 있음
+      setServerError(useAuthStore.getState().error || '회원가입에 실패했습니다.');
     }
   };
+
+  // 가입 완료 → 이메일 인증 안내 화면
+  if (done) {
+    return (
+      <SafeAreaView className="flex-1 bg-white">
+        <View className="flex-1 items-center justify-center px-8">
+          <View className="mb-6 h-20 w-20 items-center justify-center rounded-full bg-primary-light">
+            <Ionicons name="mail-unread-outline" size={40} color="#FF6A3D" />
+          </View>
+          <Text className="mb-3 text-center text-2xl font-extrabold text-ink">
+            가입이 완료되었어요!
+          </Text>
+          <Text className="mb-8 text-center text-base leading-6 text-ink-muted">
+            {form.email.trim()}로{'\n'}인증 메일을 보냈어요.{'\n'}
+            메일의 링크를 클릭한 뒤 로그인해 주세요.
+          </Text>
+          <Pressable
+            onPress={() => router.replace('/login')}
+            className="w-full items-center rounded-xl bg-primary py-4"
+          >
+            <Text className="text-base font-bold text-white">로그인하러 가기</Text>
+          </Pressable>
+        </View>
+      </SafeAreaView>
+    );
+  }
 
   return (
     <SafeAreaView className="flex-1 bg-white">
@@ -107,8 +163,8 @@ export default function SignupScreen() {
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
         >
-          <Text className="mb-6 mt-2 text-2xl font-extrabold text-ink">
-            계정을 만들어{'\n'}함께 도전해요 💪
+          <Text className="font-jua mb-6 mt-2 text-3xl font-extrabold text-ink">
+            계정을 만들어{'\n'}함께 도전해요
           </Text>
 
           <Field
@@ -117,7 +173,7 @@ export default function SignupScreen() {
             onChangeText={set('username')}
             placeholder="아이디"
             autoCapitalize="none"
-            error={submitted ? errors.username || serverError : ''}
+            error={submitted ? errors.username || fieldErrors.username : ''}
           />
           <Field
             label="닉네임"
@@ -133,13 +189,13 @@ export default function SignupScreen() {
             placeholder="example@email.com"
             keyboardType="email-address"
             autoCapitalize="none"
-            error={submitted ? errors.email : ''}
+            error={submitted ? errors.email || fieldErrors.email : ''}
           />
           <Field
             label="비밀번호"
             value={form.password}
             onChangeText={set('password')}
-            placeholder="비밀번호 (4자 이상)"
+            placeholder="비밀번호 (8~32자, 영문·숫자·기호)"
             secureTextEntry
             error={submitted ? errors.password : ''}
           />
@@ -161,6 +217,11 @@ export default function SignupScreen() {
             />
           </View>
 
+          {/* 서버 에러 메시지 */}
+          {serverError ? (
+            <Text className="mt-2 text-sm text-red-500">{serverError}</Text>
+          ) : null}
+
           {/* 가입 버튼 (약관 미동의 시 비활성화) */}
           <Pressable
             onPress={handleSignup}
@@ -172,18 +233,18 @@ export default function SignupScreen() {
             {loading ? (
               <ActivityIndicator color="white" />
             ) : (
-              <Text className="text-base font-bold text-white">가입하기</Text>
+              <Text className="text-lg font-bold text-white">가입하기</Text>
             )}
           </Pressable>
 
           {/* 로그인 이동 */}
           <View className="mb-8 flex-row items-center justify-center">
             <Text className="text-sm text-ink-muted">이미 계정이 있으신가요?</Text>
-            <Link href="/login" asChild>
-              <Pressable hitSlop={8}>
-                <Text className="ml-1 text-sm font-bold text-primary">로그인</Text>
+            
+              <Pressable hitSlop={8} onPress={() => router.back()}>
+                <Text className="ml-1 text-sm font-bold text-primary underline">로그인</Text>
               </Pressable>
-            </Link>
+
           </View>
         </ScrollView>
       </KeyboardAvoidingView>

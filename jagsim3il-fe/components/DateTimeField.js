@@ -47,7 +47,7 @@ export function DateTimeField({ label, value, onChange }) {
         className="flex-row items-center justify-between rounded-xl border border-gray-200 bg-gray-50 px-4 py-3"
       >
         <Text className="text-base text-ink">{formatDateTime(value)}</Text>
-        <Ionicons name="calendar-outline" size={20} color="#5B5BD6" />
+        <Ionicons name="calendar-outline" size={20} color="#FF6A3D" />
       </Pressable>
 
       {show && (

@@ -7,11 +7,17 @@ module.exports = {
   presets: [require('nativewind/preset')],
   theme: {
     extend: {
+      fontFamily: {
+        // 타이틀용 Jua 폰트 (app/_layout.js에서 로드)
+        jua: ['Jua_400Regular'],
+        gowunDodum: ['GowunDodum_400Regular'],
+        sans: ['GowunDodum_400Regular'],
+      },
       colors: {
         primary: {
-          DEFAULT: '#5B5BD6',
-          dark: '#4747B3',
-          light: '#EEEEFB',
+          DEFAULT: '#FF6A3D', // 로고 코랄 오렌지
+          dark: '#E0542B', // 어두운 코랄 (pressed/강조)
+          light: '#FFEDE6', // 연한 피치 (배경/배지)
         },
         ink: {
           DEFAULT: '#1A1A2E',

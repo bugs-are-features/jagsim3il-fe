@@ -1,11 +1,40 @@
 import '../global.css';
-import { useEffect } from 'react';
+import React, { useEffect } from 'react';
+import { Text, TextInput } from 'react-native';
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import { useFonts, Jua_400Regular } from '@expo-google-fonts/jua';
+import { GowunDodum_400Regular } from '@expo-google-fonts/gowun-dodum';
 import { useAuthStore } from '../src/store/authStore';
 import { useOnboardingStore } from '../src/store/onboardingStore';
+
+// 앱 전역 기본 폰트를 Gowun Dodum으로 지정한다.
+// 스타일 배열의 맨 앞에 두므로, 컴포넌트가 직접 지정한 폰트(font-jua 등)는 그대로 유지된다.
+const DEFAULT_FONT = { fontFamily: 'GowunDodum_400Regular' };
+function patchDefaultFont(Comp) {
+  if (!Comp || Comp.__fontPatched) return;
+  if (typeof Comp.render === 'function') {
+    // forwardRef 컴포넌트 (Text)
+    const orig = Comp.render;
+    Comp.render = function (...args) {
+      const el = orig.apply(this, args);
+      return React.cloneElement(el, { style: [DEFAULT_FONT, el.props.style] });
+    };
+    Comp.__fontPatched = true;
+  } else if (Comp.prototype && typeof Comp.prototype.render === 'function') {
+    // 클래스 컴포넌트 (TextInput)
+    const orig = Comp.prototype.render;
+    Comp.prototype.render = function () {
+      const el = orig.call(this);
+      return React.cloneElement(el, { style: [DEFAULT_FONT, el.props.style] });
+    };
+    Comp.__fontPatched = true;
+  }
+}
+patchDefaultFont(Text);
+patchDefaultFont(TextInput);
 
 // 인증 여부에 따른 라우팅 분기
 // expo-router v6의 <Stack.Protected guard={...}>를 사용한다.
@@ -15,17 +44,33 @@ import { useOnboardingStore } from '../src/store/onboardingStore';
 //  "navigate before mounting the Root Layout" 오류를 피한다.)
 export default function RootLayout() {
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
+  const validateSession = useAuthStore((s) => s.validateSession);
   const hydrated = useOnboardingStore((s) => s.hydrated);
   const hasSeenOnboarding = useOnboardingStore((s) => s.hasSeenOnboarding);
   const hydrate = useOnboardingStore((s) => s.hydrate);
+
+  // 타이틀 및 본문 폰트 로드
+  const [fontsLoaded] = useFonts({
+    Jua_400Regular,
+    GowunDodum_400Regular,
+  });
 
   // 앱 시작 시 AsyncStorage에서 온보딩 노출 여부를 한 번 읽어온다.
   useEffect(() => {
     hydrate();
   }, [hydrate]);
 
-  // 온보딩 상태를 읽어오기 전에는 라우팅을 보류한다(화면 깜빡임 방지).
-  if (!hydrated) return null;
+  // 로그인 상태일 때 5초마다 세션(토큰) 유효성 검사 + 회원 정보 갱신.
+  // 만료되면 store가 로그아웃 처리하여 guard가 로그인 화면으로 보낸다.
+  useEffect(() => {
+    if (!isAuthenticated) return;
+    validateSession(); // 진입 즉시 1회 검사
+    const id = setInterval(validateSession, 5000);
+    return () => clearInterval(id);
+  }, [isAuthenticated, validateSession]);
+
+  // 온보딩 상태/폰트를 준비하기 전에는 라우팅을 보류한다(화면 깜빡임 방지).
+  if (!hydrated || !fontsLoaded) return null;
 
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
@@ -46,7 +91,7 @@ export default function RootLayout() {
           <Stack.Protected guard={hasSeenOnboarding && isAuthenticated}>
             <Stack.Screen name="index" />
             <Stack.Screen name="settings" />
-            <Stack.Screen name="room/[roomId]" />
+            <Stack.Screen name="challenge/[challengeId]" />
           </Stack.Protected>
         </Stack>
         <StatusBar style="dark" />
