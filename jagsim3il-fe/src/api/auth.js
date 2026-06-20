@@ -70,6 +70,17 @@ export async function getMeRequest(token) {
   return normalizeUser(data);
 }
 
+// 프로필 수정
+// API: PATCH /api/v1/user  (Bearer 인증)  ⚠️ 엔드포인트/키는 백엔드 확정 시 조정
+// request:  { alias?(닉네임) }
+// response data: 갱신된 사용자 객체(없을 수 있음) → 정규화해 반환
+export async function updateProfileRequest(token, { alias } = {}) {
+  const body = {};
+  if (alias != null) body.alias = alias;
+  const data = await request('PATCH', '/api/v1/user', { token, body });
+  return normalizeUser(data);
+}
+
 // 회원가입
 // API: POST /api/v1/user/register
 // request:  { id, pw, alias(닉네임), email }

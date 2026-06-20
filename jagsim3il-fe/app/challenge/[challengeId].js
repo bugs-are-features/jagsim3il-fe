@@ -174,9 +174,6 @@ export default function ChallengeScreen() {
             keyboardShouldPersistTaps="handled"
             showsVerticalScrollIndicator={false}
           >
-            <View className="mb-6 self-start rounded-full bg-primary-light px-3 py-1.5">
-              <Text className="text-xs font-semibold text-primary">약속 설정</Text>
-            </View>
 
             {/* 목표 */}
             <Text className="font-jua text-2xl font-extrabold leading-8 text-ink">

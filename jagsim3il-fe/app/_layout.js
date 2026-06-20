@@ -13,14 +13,20 @@ import { useOnboardingStore } from '../src/store/onboardingStore';
 // 앱 전역 기본 폰트를 Gowun Dodum으로 지정한다.
 // 스타일 배열의 맨 앞에 두므로, 컴포넌트가 직접 지정한 폰트(font-jua 등)는 그대로 유지된다.
 const DEFAULT_FONT = { fontFamily: 'GowunDodum_400Regular' };
-function patchDefaultFont(Comp) {
+// TextInput 전용 보정:
+// - text-* 기본 lineHeight(24)는 커스텀 폰트의 디센더가 잘리므로, 디센더가 들어갈 만큼
+//   넉넉한 lineHeight(26)를 준다. iOS는 lineHeight 박스 안에서 텍스트를 중앙 정렬하므로
+//   이 값이면 잘림 없이 수직 중앙에 놓인다.
+// - Android는 includeFontPadding(폰트 메트릭 여백)이 비대칭으로 들어가 쏠리므로 끈다.
+const TEXTINPUT_FIX = { lineHeight: 26, includeFontPadding: false };
+function patchDefaultFont(Comp, extra) {
   if (!Comp || Comp.__fontPatched) return;
   if (typeof Comp.render === 'function') {
     // forwardRef 컴포넌트 (Text)
     const orig = Comp.render;
     Comp.render = function (...args) {
       const el = orig.apply(this, args);
-      return React.cloneElement(el, { style: [DEFAULT_FONT, el.props.style] });
+      return React.cloneElement(el, { style: [DEFAULT_FONT, el.props.style, extra] });
     };
     Comp.__fontPatched = true;
   } else if (Comp.prototype && typeof Comp.prototype.render === 'function') {
@@ -28,13 +34,13 @@ function patchDefaultFont(Comp) {
     const orig = Comp.prototype.render;
     Comp.prototype.render = function () {
       const el = orig.call(this);
-      return React.cloneElement(el, { style: [DEFAULT_FONT, el.props.style] });
+      return React.cloneElement(el, { style: [DEFAULT_FONT, el.props.style, extra] });
     };
     Comp.__fontPatched = true;
   }
 }
 patchDefaultFont(Text);
-patchDefaultFont(TextInput);
+patchDefaultFont(TextInput, TEXTINPUT_FIX);
 
 // 인증 여부에 따른 라우팅 분기
 // expo-router v6의 <Stack.Protected guard={...}>를 사용한다.
@@ -91,8 +97,12 @@ export default function RootLayout() {
           <Stack.Protected guard={hasSeenOnboarding && isAuthenticated}>
             <Stack.Screen name="index" />
             <Stack.Screen name="settings" />
+            <Stack.Screen name="profile-edit" />
             <Stack.Screen name="challenge/[challengeId]" />
           </Stack.Protected>
+
+          {/* 인증 여부와 무관하게 접근 가능(약관: 가입/설정 양쪽에서 사용) */}
+          <Stack.Screen name="terms" />
         </Stack>
         <StatusBar style="dark" />
       </SafeAreaProvider>

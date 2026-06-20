@@ -116,7 +116,7 @@ export default function SettingsScreen() {
         {/* 계정 */}
         <Text className="font-jua px-5 pb-2 text-md font-semibold text-ink-faint">계정</Text>
         <View className="mb-3 overflow-hidden">
-          <SettingRow icon="person-outline" label="프로필 수정" onPress={() => {}} />
+          <SettingRow icon="person-outline" label="프로필 수정" onPress={() => router.push('/profile-edit')} />
           <View className="h-px bg-gray-100" />
           <SettingRow icon="lock-closed-outline" label="비밀번호 재설정" onPress={handlePasswordReset} />
         </View>
@@ -144,7 +144,7 @@ export default function SettingsScreen() {
             <Text className="font-gowunDodum text-sm text-ink-faint">1.0.0</Text>
           } />
           <View className="h-px bg-gray-100" />
-          <SettingRow icon="document-text-outline" label="이용약관" onPress={() => {}} />
+          <SettingRow icon="document-text-outline" label="이용약관" onPress={() => router.push('/terms')} />
         </View>
 
         {/* 로그아웃 */}

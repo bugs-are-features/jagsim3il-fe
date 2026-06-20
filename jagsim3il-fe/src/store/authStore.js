@@ -4,6 +4,7 @@ import {
   loginRequest,
   signupRequest,
   getMeRequest,
+  updateProfileRequest,
   passwordReset as passwordResetRequest,
   logout as logoutRequest,
 } from '../api/auth';
@@ -75,6 +76,33 @@ export const useAuthStore = create((set, get) => ({
       if (e?.code === 401 || e?.code === 403) {
         get().logout(); // 세션 만료 → _layout guard가 로그인 화면으로 리다이렉트
       }
+    }
+  },
+
+  // 프로필 수정: { nickname?, avatar? }
+  // 닉네임은 백엔드에 PATCH로 반영하고, 아바타(로컬 uri)는 현재 로컬 상태에만 둔다
+  // (서버 업로드 엔드포인트가 아직 없음). 성공/실패를 { ok, message }로 반환.
+  updateProfile: async ({ nickname, avatar } = {}) => {
+    const { token, user } = get();
+    set({ error: null });
+    try {
+      const updated = await updateProfileRequest(token, { alias: nickname });
+      const nextNickname = nickname ?? updated?.nickname ?? user?.nickname ?? null;
+      set({
+        user: {
+          ...user,
+          ...(updated || {}),
+          nickname: nextNickname,
+          alias: nextNickname,
+          avatar: avatar ?? updated?.avatar ?? user?.avatar ?? null,
+          // /user 응답엔 email이 없으므로 기존 값을 보존
+          email: updated?.email ?? user?.email ?? null,
+        },
+      });
+      return { ok: true, message: '프로필이 저장되었습니다.' };
+    } catch (e) {
+      set({ error: e.message });
+      return { ok: false, message: e.message };
     }
   },
 
