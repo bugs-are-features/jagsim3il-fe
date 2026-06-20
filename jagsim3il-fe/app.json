@@ -1,0 +1,64 @@
+{
+  "expo": {
+    "name": "jagsim3il-fe",
+    "slug": "jagsim3il-fe",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/images/icon.png",
+    "scheme": "jagsim3ilfe",
+    "userInterfaceStyle": "automatic",
+    "newArchEnabled": true,
+    "ios": {
+      "supportsTablet": true
+    },
+    "android": {
+      "adaptiveIcon": {
+        "backgroundColor": "#E6F4FE",
+        "foregroundImage": "./assets/images/android-icon-foreground.png",
+        "backgroundImage": "./assets/images/android-icon-background.png",
+        "monochromeImage": "./assets/images/android-icon-monochrome.png"
+      },
+      "edgeToEdgeEnabled": true,
+      "predictiveBackGestureEnabled": false
+    },
+    "web": {
+      "output": "static",
+      "favicon": "./assets/images/favicon.png"
+    },
+    "plugins": [
+      "expo-router",
+      [
+        "expo-splash-screen",
+        {
+          "image": "./assets/images/splash-icon.png",
+          "imageWidth": 200,
+          "resizeMode": "contain",
+          "backgroundColor": "#ffffff",
+          "dark": {
+            "backgroundColor": "#000000"
+          }
+        }
+      ],
+      "@react-native-community/datetimepicker",
+      "expo-video",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "작심삼일이 인증 사진/동영상을 업로드할 수 있도록 갤러리 접근을 허용해 주세요.",
+          "cameraPermission": "작심삼일이 인증 촬영을 할 수 있도록 카메라 접근을 허용해 주세요."
+        }
+      ],
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "작심삼일이 인증 촬영을 할 수 있도록 카메라 접근을 허용해 주세요.",
+          "microphonePermission": "작심삼일이 동영상 인증을 촬영할 수 있도록 마이크 접근을 허용해 주세요."
+        }
+      ]
+    ],
+    "experiments": {
+      "typedRoutes": false,
+      "reactCompiler": true
+    }
+  }
+}
