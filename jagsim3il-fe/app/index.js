@@ -57,8 +57,8 @@ export default function HomeScreen() {
   // + 버튼: 직접 만들기 / 코드로 참여 선택
   const handleAdd = () => {
     Alert.alert('챌린지', '어떻게 진행할까요?', [
-      { text: '챌린지 만들기', onPress: () => setModalVisible(true) },
-      { text: '코드로 참여하기', onPress: () => setJoinVisible(true) },
+      { text: '만들기', onPress: () => setModalVisible(true) },
+      { text: '참여하기', onPress: () => setJoinVisible(true) },
       { text: '취소', style: 'cancel' },
     ]);
   };

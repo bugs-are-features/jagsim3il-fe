@@ -40,20 +40,32 @@ export function PromiseEditSheet({ visible, onClose, initialDesc, initialCertDay
     }
   }, [visible, initialDesc, initialCertDays]);
 
-  const toggleDay = (key) => setCertDays((d) => ({ ...d, [key]: !d[key] }));
+  const toggleDay = (key) => {
+    if (submitting) return;
+    setCertDays((d) => ({ ...d, [key]: !d[key] }));
+  };
   const anyDay = Object.values(certDays).some(Boolean);
-  const canSave = goal.trim() && anyDay && !submitting;
+  const canSubmit = !!(goal.trim() && anyDay);
 
-  const handleSave = async () => {
-    if (!canSave) return;
-    setSubmitting(true);
-    await onSave(goal.trim(), certDays);
-    setSubmitting(false);
+  const handleClose = () => {
+    if (submitting) return;
     onClose();
   };
 
+  const handleSave = async () => {
+    if (!canSubmit || submitting) return;
+    setSubmitting(true);
+    try {
+      await onSave(goal.trim(), certDays);
+      // 로딩은 모달이 닫힐 때까지 유지 (visible=false 시 useEffect에서 초기화)
+      onClose();
+    } catch {
+      setSubmitting(false);
+    }
+  };
+
   return (
-    <BottomSheet visible={visible} onClose={onClose}>
+    <BottomSheet visible={visible} onClose={handleClose}>
       <View
         className="rounded-t-3xl bg-white px-5 pt-3"
         style={{ paddingBottom: insets.bottom + 16 }}
@@ -64,8 +76,8 @@ export function PromiseEditSheet({ visible, onClose, initialDesc, initialCertDay
         </View>
         <View className="mt-1 mb-2 px-2 flex-row items-center justify-between">
           <Text className="font-jua text-3xl font-bold text-ink">약속 수정</Text>
-          <Pressable onPress={onClose} hitSlop={10}>
-            <Ionicons name="close" size={24} color="#6B7280" />
+          <Pressable onPress={handleClose} hitSlop={10} disabled={submitting}>
+            <Ionicons name="close" size={24} color={submitting ? '#D1D5DB' : '#6B7280'} />
           </Pressable>
         </View>
 
@@ -75,6 +87,7 @@ export function PromiseEditSheet({ visible, onClose, initialDesc, initialCertDay
           <TextInput
             value={goal}
             onChangeText={setGoal}
+            editable={!submitting}
             placeholder={'예) 매일 아침 6시에 일어나서\n모닝 루틴 사진 인증하기'}
             placeholderTextColor="#9CA3AF"
             multiline
@@ -91,6 +104,7 @@ export function PromiseEditSheet({ visible, onClose, initialDesc, initialCertDay
                 <Pressable
                   key={d.key}
                   onPress={() => toggleDay(d.key)}
+                  disabled={submitting}
                   className={`h-11 w-11 items-center justify-center rounded-full border ${
                     active ? 'border-primary bg-primary' : 'border-gray-200 bg-white'
                   }`}
@@ -108,8 +122,10 @@ export function PromiseEditSheet({ visible, onClose, initialDesc, initialCertDay
 
         <Pressable
           onPress={handleSave}
-          disabled={!canSave}
-          className={`mt-5 items-center rounded-xl py-4 ${canSave ? 'bg-primary' : 'bg-gray-300'}`}
+          disabled={!canSubmit || submitting}
+          className={`mt-5 items-center rounded-xl py-4 ${
+            canSubmit ? 'bg-primary' : 'bg-gray-300'
+          }`}
         >
           {submitting ? (
             <ActivityIndicator color="white" />

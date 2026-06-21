@@ -8,6 +8,7 @@ import {
   lookupChallenge,
   updateChallenge as updateChallengeApi,
   startChallenge as startChallengeApi,
+  endChallenge as endChallengeApi,
   joinChallenge as joinChallengeApi,
   leaveChallenge as leaveChallengeApi,
   listMembers,
@@ -16,12 +17,15 @@ import {
   upsertMyPromise,
   upsertJoinInfo,
   regenerateJoinCd,
+  getJoinInfo,
   listAllCerts,
+  listPenalties,
   getMyPenalty,
   createCert,
   updateCert as updateCertApi,
 } from '../api/challenges';
-import { toApiDate, toApiTime, todayApiDateKST } from '../utils/date';
+import { toApiDate, toApiTime, todayApiDateKST, challengeStartDateKST } from '../utils/date';
+import { sortChallengesForHome } from '../utils/challengeStatus';
 
 // status가 preparing이 아니면 시작된(active/ended) 챌린지로 본다.
 function isStarted(challenge) {
@@ -51,7 +55,7 @@ export const useChallengeStore = create((set, get) => ({
   loadChallenges: async (role = 'all') => {
     set({ loading: true });
     try {
-      const challenges = await listChallenges(tk(), role);
+      const challenges = sortChallengesForHome(await listChallenges(tk(), role));
       set({ challenges, loading: false });
     } catch {
       set({ loading: false });
@@ -61,7 +65,7 @@ export const useChallengeStore = create((set, get) => ({
   refreshChallenges: async (role = 'all') => {
     set({ refreshing: true });
     try {
-      const challenges = await listChallenges(tk(), role);
+      const challenges = sortChallengesForHome(await listChallenges(tk(), role));
       set({ challenges, refreshing: false });
     } catch {
       set({ refreshing: false });
@@ -115,6 +119,25 @@ export const useChallengeStore = create((set, get) => ({
     });
   },
 
+  // 조기 종료: POST /end (방장·active만, body 없음)
+  endChallenge: async (chalId) => {
+    const updated = await endChallengeApi(tk(), chalId);
+    if (updated) {
+      set((state) => ({
+        challenges: sortChallengesForHome(
+          state.challenges.map((c) =>
+            c.id === chalId ? { ...c, ...updated } : c
+          )
+        ),
+        currentChallenge:
+          state.currentChallenge?.id === chalId
+            ? { ...state.currentChallenge, ...updated }
+            : state.currentChallenge,
+      }));
+    }
+    return updated;
+  },
+
   // 가입 전 조회(미리보기): join_cd로 비멤버가 챌린지 정보를 조회
   previewChallenge: async (chalId, joinCd) => {
     return getChallenge(tk(), chalId, joinCd);
@@ -145,28 +168,55 @@ export const useChallengeStore = create((set, get) => ({
       auth_yn: authYn,
       auth_cd: authYn === 'Y' ? authCd : undefined,
     });
-    get()._mergeJoinCd(chalId, data?.join_cd);
+    get()._mergeJoinInfo(chalId, {
+      joinCd: data?.join_cd,
+      authYn,
+      authCd: authYn === 'Y' ? authCd : '',
+    });
     return data;
   },
 
   // 가입 코드 재발급(방장)
   regenerateJoinCode: async (chalId) => {
     const data = await regenerateJoinCd(tk(), chalId);
-    get()._mergeJoinCd(chalId, data?.join_cd);
+    get()._mergeJoinInfo(chalId, { joinCd: data?.join_cd });
     return data;
   },
 
-  // 가입 코드를 현재 챌린지 상태에 반영
-  _mergeJoinCd: (chalId, joinCd) => {
-    if (!joinCd) return;
-    set((state) =>
-      state.currentChallenge?.id === chalId
-        ? { currentChallenge: { ...state.currentChallenge, joinCd } }
-        : {}
-    );
+  // 가입 정보(코드/인증 설정)를 현재 챌린지 상태에 반영.
+  // 상세 응답이 가입 정보를 안 내려줘도 화면에서 유지되도록 보존한다.
+  _mergeJoinInfo: (chalId, { joinCd, authYn, authCd } = {}) => {
+    const patch = {};
+    if (joinCd != null) patch.joinCd = joinCd;
+    if (authYn != null) patch.authYn = authYn;
+    if (authCd != null) patch.authCd = authCd;
+    if (Object.keys(patch).length === 0) return;
+    set((state) => ({
+      currentChallenge:
+        state.currentChallenge?.id === chalId
+          ? { ...state.currentChallenge, ...patch }
+          : state.currentChallenge,
+      challenges: state.challenges.map((c) =>
+        c.id === chalId ? { ...c, ...patch } : c
+      ),
+    }));
   },
 
   // ── 상세 ─────────────────────────────────────────────────
+  // 다른 챌린지로 전환 시 이전 화면 state 잔상을 즉시 제거한다.
+  prepareChallengeDetail: (chalId) => {
+    const prev = get().currentChallenge;
+    if (prev?.id !== chalId) {
+      set({
+        currentChallenge: null,
+        members: [],
+        myPromise: null,
+        myPenalty: null,
+        detailLoading: true,
+      });
+    }
+  },
+
   loadChallengeDetail: async (chalId) => {
     set({ detailLoading: true });
     const token = tk();
@@ -186,40 +236,89 @@ export const useChallengeStore = create((set, get) => ({
       const myLoginId = useAuthStore.getState().user?.username ?? null;
       let merged = members.map((m) => {
         const key = m.loginId != null ? String(m.loginId) : null;
-        let goal = m.goal || (key && byUser[key]?.desc) || '';
+        const promise = key ? byUser[key] : null;
+        let goal = m.goal || promise?.desc || '';
+        let certDays = m.certDays || promise?.certDays || null;
         // 전체 약속 목록이 비어도 내 카드는 내 약속(/me)으로 채운다
-        if (!goal && myLoginId && key === String(myLoginId) && myPromise?.desc) {
-          goal = myPromise.desc;
+        if (myLoginId && key === String(myLoginId)) {
+          if (!goal && myPromise?.desc) goal = myPromise.desc;
+          if (!certDays && myPromise?.certDays) certDays = myPromise.certDays;
         }
-        return { ...m, goal, todayCert: null };
+        return { ...m, goal, certDays, todayCert: null, certStats: null, certHistory: [] };
       });
 
       // 인증/패널티: 시작된(active/ended) 챌린지에서만 조회한다.
-      // (preparing 상태는 패널티 API가 막혀 있고 인증도 불가)
       let myPenalty = null;
       if (isStarted(challenge)) {
         const today = todayApiDateKST();
-        const [allCerts, penalty] = await Promise.all([
-          listAllCerts(token, chalId, today, today).catch(() => []),
+        const from = challengeStartDateKST(challenge.startAt ?? challenge.startedAt);
+        const [allCerts, penalties, penalty] = await Promise.all([
+          listAllCerts(token, chalId, from, today).catch(() => []),
+          listPenalties(token, chalId).catch(() => []),
           getMyPenalty(token, chalId).catch(() => null),
         ]);
-        // loginId → 오늘 인증
-        const certByUser = {};
+
+        const penaltyByUser = {};
+        penalties.forEach((p) => {
+          const key = p.loginId != null ? String(p.loginId) : null;
+          if (key) penaltyByUser[key] = p;
+        });
+
+        const certsByUser = {};
         allCerts.forEach((row) => {
           const key = row.member?.loginId != null ? String(row.member.loginId) : null;
           if (!key) return;
-          certByUser[key] =
-            row.certs.find((c) => c.certDate === today) ?? row.certs[0] ?? null;
+          const certs = Array.isArray(row.certs) ? row.certs : [];
+          certsByUser[key] = certs;
         });
+
         merged = merged.map((m) => {
           const key = m.loginId != null ? String(m.loginId) : null;
-          return { ...m, todayCert: key ? certByUser[key] ?? null : null };
+          const certs = key ? certsByUser[key] ?? [] : [];
+          const sorted = [...certs].sort((a, b) =>
+            (b.certDate ?? '').localeCompare(a.certDate ?? '')
+          );
+          const todayCert = certs.find((c) => c.certDate === today) ?? null;
+          const penaltyRow = key ? penaltyByUser[key] : null;
+          const uploadedCount =
+            penaltyRow?.uploadedCount ??
+            certs.filter((c) => c.status === 'uploaded').length;
+          const missedCount =
+            penaltyRow?.missedCount ??
+            certs.filter((c) => c.status === 'missed').length;
+
+          return {
+            ...m,
+            todayCert,
+            certStats: { uploadedCount, missedCount },
+            certHistory: sorted,
+          };
         });
         myPenalty = penalty;
       }
 
+      // 가입 코드/인증 설정 반영:
+      // 방장이면 join-info를 직접 조회(미설정 404·비방장 403은 무시).
+      // 상세 응답이 가입 정보를 안 내려줘도 화면에서 유지되도록,
+      // 조회 실패 시엔 이미 알고 있던 값(이전 상태/홈 목록)을 보존한다.
+      const joinInfo = challenge?.isOwner
+        ? await getJoinInfo(token, chalId).catch(() => null)
+        : null;
+      const prev =
+        get().currentChallenge?.id === chalId ? get().currentChallenge : null;
+      const listEntry = get().challenges.find((c) => c.id === chalId) ?? null;
+      const mergedChallenge = {
+        ...challenge,
+        joinCd:
+          joinInfo?.joinCd ?? challenge?.joinCd ?? prev?.joinCd ?? listEntry?.joinCd ?? null,
+        authYn:
+          joinInfo?.authYn ?? challenge?.authYn ?? prev?.authYn ?? listEntry?.authYn ?? null,
+        authCd:
+          joinInfo?.authCd ?? challenge?.authCd ?? prev?.authCd ?? listEntry?.authCd ?? null,
+      };
+
       set({
-        currentChallenge: challenge,
+        currentChallenge: mergedChallenge,
         members: merged,
         myPromise: myPromise?.desc ? myPromise : null,
         myPenalty,

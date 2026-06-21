@@ -36,7 +36,9 @@ export function normalizeChallenge(raw) {
     status: raw.status ?? null, // preparing | (시작 후 상태)
     startedAt: raw.started_at ?? null,
     // 가입 시 인증 코드 입력 필요 여부('Y'면 4자리 인증 코드 필요)
-    authYn: raw.auth_yn ?? null,
+    authYn: raw.auth_yn ?? raw.join_info?.auth_yn ?? null,
+    // 인증 코드(방장 본인 조회 시 응답에 포함될 수 있음)
+    authCd: raw.auth_cd ?? raw.join_info?.auth_cd ?? null,
     // 백엔드가 내려주는 권한/멤버십 플래그
     isOwner: raw.is_owner ?? false,
     isMember: raw.is_member ?? false,
@@ -170,6 +172,12 @@ export async function startChallenge(token, chalId, body) {
   return request('POST', `${BASE}/${chalId}/start`, { token, body });
 }
 
+// 챌린지 조기 종료  POST /api/v1/challenge/{chal_id}/end  (body 없음, 방장·active만)
+export async function endChallenge(token, chalId) {
+  const data = await request('POST', `${BASE}/${chalId}/end`, { token });
+  return normalizeChallenge(data);
+}
+
 // 챌린지 가입  POST /api/v1/challenge/join  { chal_id, join_cd, auth_cd? }
 export async function joinChallenge(token, body) {
   return request('POST', `${BASE}/join`, { token, body });
@@ -191,6 +199,19 @@ export async function listMembers(token, chalId) {
 // 가입 정보 설정  PUT /api/v1/challenge/{chal_id}/join-info  { auth_yn, auth_cd? }
 export async function upsertJoinInfo(token, chalId, body) {
   return request('PUT', `${BASE}/${chalId}/join-info`, { token, body });
+}
+
+// 가입 코드 정보 조회(방장)  GET /api/v1/challenge/{chal_id}/join-info
+// 응답 JoinInfoDto: { join_cd, auth_yn, auth_cd }
+// (비방장 403, 가입 코드 미설정 시 404 → 호출부에서 catch)
+export async function getJoinInfo(token, chalId) {
+  const data = await request('GET', `${BASE}/${chalId}/join-info`, { token });
+  return {
+    joinCd: data?.join_cd ?? null,
+    authYn: data?.auth_yn ?? null,
+    authCd: data?.auth_cd ?? null,
+    raw: data,
+  };
 }
 
 // 가입 코드 재생성  POST /api/v1/challenge/{chal_id}/join-info/regenerate

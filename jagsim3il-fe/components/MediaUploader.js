@@ -62,7 +62,7 @@ export function MediaUploader({ media, onPicked, editable = false }) {
       Alert.alert(
         '카메라 오류',
         e?.message ||
-          '카메라를 사용할 수 없어요. 시뮬레이터/에뮬레이터에는 카메라가 없으니 실기기에서 시도해 주세요.'
+        '카메라를 사용할 수 없어요. 시뮬레이터/에뮬레이터에는 카메라가 없으니 실기기에서 시도해 주세요.'
       );
     }
   };
@@ -135,9 +135,8 @@ export function MediaUploader({ media, onPicked, editable = false }) {
     <Pressable
       onPress={editable ? showChoice : undefined}
       disabled={!editable || loading}
-      className={`mt-2 aspect-[16/9] w-full items-center justify-center rounded-xl border border-dashed ${
-        editable ? 'border-primary/40 bg-primary-light/40' : 'border-gray-200 bg-gray-50'
-      }`}
+      className={`mt-2 aspect-[16/9] w-full items-center justify-center rounded-xl border border-dashed ${editable ? 'border-primary/40 bg-primary-light/40' : 'border-gray-200 bg-gray-50'
+        }`}
     >
       {loading ? (
         <ActivityIndicator color="#FF6A3D" />
@@ -149,7 +148,7 @@ export function MediaUploader({ media, onPicked, editable = false }) {
       ) : (
         <>
           <Ionicons name="hourglass-outline" size={24} color="#9CA3AF" />
-          <Text className="mt-1 text-md font-gowunDodum text-ink-faint">아직 인증 전</Text>
+          <Text className="mt-1 text-md font-gowunDodum text-ink-faint">인증 대기 중</Text>
         </>
       )}
     </Pressable>

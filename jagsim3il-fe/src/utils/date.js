@@ -69,6 +69,36 @@ export function todayWeekdayKeyKST() {
   return map[short] ?? null;
 }
 
+// Date/ISO → KST 'YYYY-MM-DD'
+export function toKSTDateString(value) {
+  if (!value) return '';
+  return new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Asia/Seoul',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).format(new Date(value));
+}
+
+// 챌린지 시작일(KST). 없으면 오늘.
+export function challengeStartDateKST(startAt) {
+  return toKSTDateString(startAt) || todayApiDateKST();
+}
+
+// 오늘이 해당 멤버의 인증 요일인지
+export function isCertDayToday(certDays, todayKey = todayWeekdayKeyKST()) {
+  if (!certDays || !todayKey) return false;
+  return !!certDays[todayKey];
+}
+
+// 'YYYY-MM-DD' → 'M월 D일'
+export function formatCertDate(dateStr) {
+  if (!dateStr) return '';
+  const [y, m, d] = dateStr.split('-').map(Number);
+  if (!m || !d) return dateStr;
+  return `${m}월 ${d}일`;
+}
+
 // 'YYMMDD' + 'HHMM' → Date (없으면 null)
 export function fromApiDateTime(dt, tm) {
   if (!dt || dt.length < 6) return null;

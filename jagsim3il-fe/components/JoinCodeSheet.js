@@ -21,10 +21,19 @@ function pickJoinCode(data) {
 // 방장용 가입 코드 설정 바텀시트
 // onSave({ authYn, authCd }) → 응답(가입코드 포함) 반환
 // onRegenerate() → 응답(새 가입코드 포함) 반환
-export function JoinCodeSheet({ visible, onClose, chalId, initialCode, onSave, onRegenerate }) {
+export function JoinCodeSheet({
+  visible,
+  onClose,
+  chalId,
+  initialCode,
+  initialAuthYn,
+  initialAuthCd,
+  onSave,
+  onRegenerate,
+}) {
   const insets = useSafeAreaInsets();
-  const [useAuth, setUseAuth] = useState(false);
-  const [authCd, setAuthCd] = useState('');
+  const [useAuth, setUseAuth] = useState(initialAuthYn === 'Y');
+  const [authCd, setAuthCd] = useState(initialAuthCd || '');
   const [joinCode, setJoinCode] = useState(initialCode || '');
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
@@ -40,12 +49,15 @@ export function JoinCodeSheet({ visible, onClose, chalId, initialCode, onSave, o
     setTimeout(() => setCopied(false), 1500);
   };
 
+  // 시트를 열 때마다 챌린지에 이미 설정된 가입 코드/인증 설정을 반영한다.
   useEffect(() => {
     if (visible) {
       setJoinCode(initialCode || '');
+      setUseAuth(initialAuthYn === 'Y');
+      setAuthCd(initialAuthCd || '');
       setError('');
     }
-  }, [visible, initialCode]);
+  }, [visible, initialCode, initialAuthYn, initialAuthCd]);
 
   const handleSave = async () => {
     if (submitting) return;

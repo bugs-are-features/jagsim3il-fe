@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   View,
   Text,
@@ -9,6 +9,7 @@ import {
   KeyboardAvoidingView,
   Platform,
   ActivityIndicator,
+  RefreshControl,
   Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -22,9 +23,12 @@ import { StartChallengeSheet } from '../../components/StartChallengeSheet';
 import { JoinCodeSheet } from '../../components/JoinCodeSheet';
 import { PromiseEditSheet } from '../../components/PromiseEditSheet';
 import { CertSheet } from '../../components/CertSheet';
+import { MemberCertHistorySheet } from '../../components/MemberCertHistorySheet';
+import { LoadingScreen } from '../../components/LoadingScreen';
+import { ChallengeStatusBanner } from '../../components/ChallengeStatusBanner';
 import { useChallengeStore } from '../../src/store/challengeStore';
 import { useAuthStore } from '../../src/store/authStore';
-import { todayWeekdayKeyKST } from '../../src/utils/date';
+import { daysLeft } from '../../src/utils/date';
 
 // 인증 요일 (월~일)
 const DAYS = [
@@ -49,10 +53,12 @@ export default function ChallengeScreen() {
   const myPenalty = useChallengeStore((s) => s.myPenalty);
   const detailLoading = useChallengeStore((s) => s.detailLoading);
   const loadChallengeDetail = useChallengeStore((s) => s.loadChallengeDetail);
+  const prepareChallengeDetail = useChallengeStore((s) => s.prepareChallengeDetail);
   const upsertPromise = useChallengeStore((s) => s.upsertPromise);
   const submitCert = useChallengeStore((s) => s.submitCert);
   const updateChallenge = useChallengeStore((s) => s.updateChallenge);
   const startChallenge = useChallengeStore((s) => s.startChallenge);
+  const endChallenge = useChallengeStore((s) => s.endChallenge);
   const setJoinInfo = useChallengeStore((s) => s.setJoinInfo);
   const regenerateJoinCode = useChallengeStore((s) => s.regenerateJoinCode);
   const setMemberMedia = useChallengeStore((s) => s.setMemberMedia);
@@ -67,7 +73,9 @@ export default function ChallengeScreen() {
   const [joinCodeVisible, setJoinCodeVisible] = useState(false);
   const [promiseEditVisible, setPromiseEditVisible] = useState(false);
   const [certVisible, setCertVisible] = useState(false);
+  const [historyMember, setHistoryMember] = useState(null);
   const [submitting, setSubmitting] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
 
   // 내 약속이 있으면 입장한 상태
   const hasJoined = !!myPromise?.desc;
@@ -78,17 +86,23 @@ export default function ChallengeScreen() {
     !!currentChallenge?.startedAt ||
     (!!currentChallenge?.status && currentChallenge.status !== 'preparing');
   const status = currentChallenge?.status ?? 'preparing';
-  // 오늘이 내 약속 기준 인증 요일인지 (KST)
-  const todayKey = todayWeekdayKeyKST();
-  const todayIsCertDay = !!(myPromise?.certDays && todayKey && myPromise.certDays[todayKey]);
+  const isActive = status === 'active';
   const hasPenalty = !!currentChallenge?.penalty;
   // 가입 코드 (정규화된 joinCd 또는 설정 후 병합된 값)
   const joinCode =
     currentChallenge?.joinCd ?? currentChallenge?.raw?.join_cd ?? '';
+  const ownerAlias = currentChallenge?.ownerName || '방장';
 
   const handleStart = async (s, e) => {
     await startChallenge(challengeId, s, e);
     await loadChallengeDetail(challengeId);
+  };
+
+  // 아래로 당겨 새로고침: 챌린지 상세/멤버/인증 정보 다시 조회
+  const handleRefresh = async () => {
+    setRefreshing(true);
+    await loadChallengeDetail(challengeId);
+    setRefreshing(false);
   };
 
   // 약속(목표)을 설정하지 않은 멤버 목록
@@ -119,6 +133,8 @@ export default function ChallengeScreen() {
 
   // 시작 전 비방장 멤버만 탈퇴 가능
   const canLeave = hasJoined && !isOwner && !started;
+  // 진행 중(active) 방장만 조기 종료 가능
+  const canEndEarly = isOwner && isActive;
   // 시작 전이면 내 약속 수정 가능
   const canEditPromise = hasJoined && !started;
 
@@ -136,6 +152,32 @@ export default function ChallengeScreen() {
         },
       },
     ]);
+  };
+
+  const handleEndEarly = () => {
+    const left = daysLeft(currentChallenge?.endAt);
+    const remainMsg =
+      left > 0 ? `도전 성공까지 ${left}일 남았습니다.` : '오늘이 마지막 날입니다.';
+    Alert.alert(
+      '챌린지 조기 종료',
+      `${remainMsg}\n정말 조기 종료할까요?`,
+      [
+        { text: '취소', style: 'cancel' },
+        {
+          text: '종료하기',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await endChallenge(challengeId);
+              await loadChallengeDetail(challengeId);
+              setDetailVisible(false);
+            } catch (e) {
+              Alert.alert('조기 종료 실패', e?.message || '요청 처리 중 오류가 발생했습니다.');
+            }
+          },
+        },
+      ]
+    );
   };
 
   // "내 카드" 판별 — 정확히 한 명만 나로 확정한다.
@@ -160,8 +202,23 @@ export default function ChallengeScreen() {
 
   const isMine = (m) => !!myMember && m.id === myMember.id;
 
+  // 내 카드를 최상단, 나머지는 기존 순서 유지
+  const sortedMembers = useMemo(() => {
+    if (!myMember) return members;
+    const rest = members.filter((m) => m.id !== myMember.id);
+    return [myMember, ...rest];
+  }, [members, myMember]);
+
   useEffect(() => {
+    prepareChallengeDetail(challengeId);
     loadChallengeDetail(challengeId);
+
+    // 화면에 머무는 동안 10초마다 챌린지 정보 자동 갱신
+    const timer = setInterval(() => {
+      loadChallengeDetail(challengeId);
+    }, 10_000);
+
+    return () => clearInterval(timer);
   }, [challengeId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const toggleDay = (key) => setCertDays((d) => ({ ...d, [key]: !d[key] }));
@@ -181,13 +238,10 @@ export default function ChallengeScreen() {
     await submitCert(challengeId, content);
   };
 
-  // 로딩 중
-  if (detailLoading && !currentChallenge) {
-    return (
-      <SafeAreaView className="flex-1 items-center justify-center bg-white">
-        <ActivityIndicator color="#FF6A3D" />
-      </SafeAreaView>
-    );
+  // 로딩 중 — 다른 챌린지 state가 보이지 않도록 전환 시에도 전체 화면 로딩
+  const isDetailReady = currentChallenge?.id === challengeId;
+  if (detailLoading && !isDetailReady) {
+    return <LoadingScreen message="챌린지 정보를 불러오는 중..." />;
   }
 
   // ── 처음 입장: 약속(목표 + 인증 요일) 설정 화면 ─────────────
@@ -241,16 +295,14 @@ export default function ChallengeScreen() {
                   <Pressable
                     key={d.key}
                     onPress={() => toggleDay(d.key)}
-                    className={`h-11 w-11 items-center justify-center rounded-full border ${
-                      active
-                        ? 'border-primary bg-primary'
-                        : 'border-gray-200 bg-white'
-                    }`}
+                    className={`h-11 w-11 items-center justify-center rounded-full border ${active
+                      ? 'border-primary bg-primary'
+                      : 'border-gray-200 bg-white'
+                      }`}
                   >
                     <Text
-                      className={`text-sm font-bold ${
-                        active ? 'text-white' : 'text-ink-faint'
-                      }`}
+                      className={`text-sm font-bold ${active ? 'text-white' : 'text-ink-faint'
+                        }`}
                     >
                       {d.label}
                     </Text>
@@ -265,9 +317,8 @@ export default function ChallengeScreen() {
             <Pressable
               onPress={handleEnter}
               disabled={!canEnter || submitting}
-              className={`items-center rounded-xl py-4 ${
-                canEnter && !submitting ? 'bg-primary' : 'bg-gray-300'
-              }`}
+              className={`items-center rounded-xl py-4 ${canEnter && !submitting ? 'bg-primary' : 'bg-gray-300'
+                }`}
             >
               {submitting ? (
                 <ActivityIndicator color="white" />
@@ -305,7 +356,7 @@ export default function ChallengeScreen() {
 
       {/* 멤버 카드 그리드 */}
       <FlatList
-        data={members}
+        data={sortedMembers}
         keyExtractor={(item) => String(item.id)}
         contentContainerStyle={{
           paddingTop: 8,
@@ -313,6 +364,13 @@ export default function ChallengeScreen() {
           paddingHorizontal: 16,
           gap: 12,
         }}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={handleRefresh}
+            tintColor="#FF6A3D"
+          />
+        }
         ListHeaderComponent={
           <View className="mb-1 px-1">
             {/* 방장 시작 준비: 약속 ✓ → 패널티 → 시작 */}
@@ -369,9 +427,8 @@ export default function ChallengeScreen() {
                 <Pressable
                   onPress={handleStartPress}
                   disabled={!hasPenalty}
-                  className={`mt-3 items-center rounded-xl py-3 ${
-                    hasPenalty ? 'bg-primary' : 'bg-gray-300'
-                  }`}
+                  className={`mt-3 items-center rounded-xl py-3 ${hasPenalty ? 'bg-primary' : 'bg-gray-300'
+                    }`}
                 >
                   <Text className="font-jua text-lg font-bold text-white">
                     챌린지 시작하기
@@ -383,23 +440,37 @@ export default function ChallengeScreen() {
                   </Text>
                 )}
               </View>
+            ) : !started ? (
+              // 비방장: 챌린지 시작 전 — 방장이 준비 중임을 안내
+              <View className="mb-3 items-center rounded-2xl bg-white px-5 py-6">
+                <View className="mb-3 h-14 w-14 items-center justify-center rounded-full bg-primary-light">
+                  <Ionicons name="hourglass-outline" size={28} color="#FF6A3D" />
+                </View>
+                <Text className="font-jua text-center text-xl font-bold text-ink">
+                  {ownerAlias}님이{'\n'}챌린지를 준비하고 있어요!
+                </Text>
+                <Text className="font-gowunDodum mt-2 text-center text-sm leading-5 text-ink-muted">
+                  시작되면 여기서 인증을 시작할 수 있어요.{'\n'}
+                  그 전까지 멤버들의 약속을 확인해 보세요.
+                </Text>
+              </View>
             ) : null}
 
-            <View className="flex-row items-center justify-between">
-              <Text className="font-gowunDodum text-lg text-ink-muted">
-                멤버들의 목표와 인증을 확인해 보세요
-              </Text>
-              {canEditPromise ? (
-                <Pressable
-                  onPress={() => setPromiseEditVisible(true)}
-                  hitSlop={8}
-                  className="flex-row items-center rounded-full bg-white px-3 py-1.5"
-                >
-                  <Ionicons name="pencil" size={14} color="#FF6A3D" />
-                  <Text className="ml-1 text-xs font-semibold text-primary">약속 수정</Text>
-                </Pressable>
-              ) : null}
-            </View>
+            {/* 시작 후: 일차별 조언/상태 카드 */}
+            {started ? (
+              <ChallengeStatusBanner
+                startAt={currentChallenge?.startAt ?? currentChallenge?.startedAt}
+                status={status}
+              />
+            ) : null}
+
+            <View className="mb-3 border-b border-gray-200" />
+
+            <Text className="font-gowunDodum text-lg text-ink-muted">
+              {started
+                ? '멤버들의 목표와 인증을 확인해 보세요'
+                : '멤버들의 약속을 확인해 보세요'}
+            </Text>
           </View>
         }
         renderItem={({ item }) => (
@@ -408,8 +479,10 @@ export default function ChallengeScreen() {
             isMe={isMine(item)}
             started={started}
             status={status}
-            todayIsCertDay={todayIsCertDay}
+            canEditPromise={canEditPromise}
+            onEditPromise={() => setPromiseEditVisible(true)}
             onWriteCert={() => setCertVisible(true)}
+            onShowHistory={(m) => setHistoryMember(m)}
             onPickMedia={(memberId, asset) =>
               setMemberMedia(challengeId, memberId, asset)
             }
@@ -432,6 +505,8 @@ export default function ChallengeScreen() {
         challenge={currentChallenge}
         canLeave={canLeave}
         onLeave={handleLeave}
+        canEndEarly={canEndEarly}
+        onEndEarly={handleEndEarly}
       />
 
       {/* 패널티 설정 (방장) */}
@@ -455,6 +530,8 @@ export default function ChallengeScreen() {
         onClose={() => setJoinCodeVisible(false)}
         chalId={challengeId}
         initialCode={joinCode}
+        initialAuthYn={currentChallenge?.authYn}
+        initialAuthCd={currentChallenge?.authCd}
         onSave={(info) => setJoinInfo(challengeId, info)}
         onRegenerate={() => regenerateJoinCode(challengeId)}
       />
@@ -465,7 +542,18 @@ export default function ChallengeScreen() {
         onClose={() => setPromiseEditVisible(false)}
         initialDesc={myPromise?.desc}
         initialCertDays={myPromise?.certDays}
-        onSave={(desc, days) => upsertPromise(challengeId, desc, days)}
+        onSave={async (desc, days) => {
+          await upsertPromise(challengeId, desc, days);
+          // 멤버 카드의 목표/인증 요일을 갱신하기 위해 상세를 다시 불러온다.
+          await loadChallengeDetail(challengeId);
+        }}
+      />
+
+      {/* 멤버 인증 내역 (카드 탭) */}
+      <MemberCertHistorySheet
+        visible={!!historyMember}
+        onClose={() => setHistoryMember(null)}
+        member={historyMember}
       />
 
       {/* 오늘 인증 작성/수정 (진행 중, 인증 요일) */}
