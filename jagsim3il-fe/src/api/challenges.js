@@ -5,8 +5,35 @@
 //
 // ⚠️ 응답 data의 정확한 필드명은 백엔드 확정 전이라, snake_case를 우선으로
 //    가능한 키들을 폭넓게 매핑한다(normalize* 함수). 실제 응답 확인 후 조정 필요.
-import { request } from './client';
+import { request, BASE_URL } from './client';
 import { fromApiDateTime } from '../utils/date';
+
+// ── 인증 타입(auth_tp) ──────────────────────────────────
+// 1=텍스트, 2=이미지, 3=비디오
+export const AUTH_TP = { TEXT: 1, IMAGE: 2, VIDEO: 3 };
+export const AUTH_TP_KEY = { 1: 'text', 2: 'image', 3: 'video' };
+export const AUTH_TP_LABEL = { 1: '텍스트', 2: '사진', 3: '영상' };
+export const AUTH_TP_ORDER = [AUTH_TP.TEXT, AUTH_TP.IMAGE, AUTH_TP.VIDEO];
+
+// 백엔드 auth_set([{ auth_tp, required:'Y'|'N' }]) → 앱 형태([{ authTp, required:boolean }])
+export function normalizeAuthSet(raw) {
+  if (!Array.isArray(raw)) return null;
+  return raw
+    .map((a) => ({
+      authTp: a.auth_tp ?? a.authTp ?? null,
+      // 백엔드는 'Y'/'N' 문자열, 일부 변형은 boolean으로 줄 수 있어 모두 대응
+      required: a.required === 'Y' || a.required === true,
+    }))
+    .filter((a) => a.authTp != null)
+    .sort((a, b) => a.authTp - b.authTp);
+}
+
+// 앱 형태([{ authTp, required:boolean }]) → 백엔드 요청 형태([{ auth_tp, required:'Y'|'N' }])
+export function toApiAuthSet(authSet) {
+  return (authSet ?? [])
+    .filter((a) => a && a.authTp != null)
+    .map((a) => ({ auth_tp: a.authTp, required: a.required ? 'Y' : 'N' }));
+}
 
 // ── 정규화 ──────────────────────────────────────────────
 // 백엔드 챌린지 객체 → 앱 공통 형태
@@ -46,6 +73,8 @@ export function normalizeChallenge(raw) {
     ownerId: raw.owner?.id ?? raw.owner_id ?? raw.ownerId ?? null,
     ownerName: raw.owner?.alias ?? raw.owner?.name ?? null,
     joinCd: raw.join_cd ?? raw.join_info?.join_cd ?? null,
+    // 인증 방식 설정: [{ authTp, required(boolean) }]
+    authSet: normalizeAuthSet(raw.auth_set),
     memberCount:
       raw.member_count ?? raw.member_cnt ?? raw.memberCount ?? members.length,
     members,
@@ -94,14 +123,41 @@ export function normalizePromise(raw) {
   };
 }
 
-// 백엔드 인증(cert) 객체 → 앱 공통 형태
-// CertDto: { cert_date(YYYY-MM-DD), status(uploaded|missed), content, created_at, updated_at }
+// 인증 첨부파일(image/video) 파트 정규화
+// { name, size, url, uploaded_at } → { name, size, url, uploadedAt }
+function normalizeCertFile(m) {
+  if (!m || typeof m !== 'object') return null;
+  return {
+    name: m.name ?? null,
+    size: m.size ?? null,
+    url: m.url ?? null,
+    uploadedAt: m.uploaded_at ?? m.uploadedAt ?? null,
+    raw: m,
+  };
+}
+
+// 백엔드 인증(cert) 객체 → 앱 공통 형태 (개편된 CertDto)
+// CertDto: {
+//   cert_date(YYYY-MM-DD), status(uploaded|missed),
+//   text:  { content, uploaded_at } | null,
+//   image: { name, size, url, uploaded_at } | null,
+//   video: { name, size, url, uploaded_at } | null,
+//   created_at, updated_at
+// }
 export function normalizeCert(raw) {
   if (!raw || typeof raw !== 'object') return null;
+  const text =
+    raw.text && typeof raw.text === 'object'
+      ? { content: raw.text.content ?? '', uploadedAt: raw.text.uploaded_at ?? null }
+      : null;
   return {
     certDate: raw.cert_date ?? raw.certDate ?? null,
     status: raw.status ?? null, // 'uploaded' | 'missed'
-    content: raw.content ?? null,
+    text,
+    image: normalizeCertFile(raw.image),
+    video: normalizeCertFile(raw.video),
+    // 하위 호환: 기존 코드가 cert.content(텍스트)를 참조하던 경로 보존
+    content: text?.content ?? raw.content ?? null,
     createdAt: raw.created_at ?? null,
     updatedAt: raw.updated_at ?? null,
     raw,
@@ -134,9 +190,23 @@ export async function listChallenges(token, role = 'all') {
   return arr.map(normalizeChallenge);
 }
 
-// 챌린지 생성  POST /api/v1/challenge  { title, desc }
-export async function createChallenge(token, { title, desc }) {
-  const data = await request('POST', BASE, { token, body: { title, desc } });
+// 챌린지 생성  POST /api/v1/challenge  { title, desc, auth_set }
+// auth_set은 필수(최소 1개, auth_tp 중복 불가). authSet=[{ authTp, required:boolean }]
+export async function createChallenge(token, { title, desc, authSet }) {
+  const body = { title, desc };
+  const apiAuthSet = toApiAuthSet(authSet);
+  if (apiAuthSet.length) body.auth_set = apiAuthSet;
+  const data = await request('POST', BASE, { token, body });
+  return normalizeChallenge(data);
+}
+
+// 인증 타입 설정 변경(전체 교체)  PUT /api/v1/challenge/{chal_id}/auth-set
+// 방장 전용, 준비 중(preparing)에서만 가능. authSet=[{ authTp, required:boolean }]
+export async function setAuthSet(token, chalId, authSet) {
+  const data = await request('PUT', `${BASE}/${chalId}/auth-set`, {
+    token,
+    body: { auth_set: toApiAuthSet(authSet) },
+  });
   return normalizeChallenge(data);
 }
 
@@ -243,23 +313,55 @@ export async function listPromises(token, chalId) {
 }
 
 // ── 인증(cert) ──────────────────────────────────────────
-// 인증 생성(당일)  POST /api/v1/challenge/{chal_id}/promise/me/cert  { content }
-// cert_date는 서버가 KST 오늘로 설정. content는 1~500자 텍스트 메모.
-export async function createCert(token, chalId, content) {
-  const data = await request('POST', `${BASE}/${chalId}/promise/me/cert`, {
+// 텍스트 인증 제출  POST /api/v1/challenge/{chal_id}/promise/me/cert/text  { content }
+// 재제출 시 기존 텍스트를 덮어쓴다(별도 PATCH 없음).
+export async function submitTextCert(token, chalId, content) {
+  const data = await request('POST', `${BASE}/${chalId}/promise/me/cert/text`, {
     token,
     body: { content },
   });
   return normalizeCert(data);
 }
 
-// 당일 인증 수정  PATCH /api/v1/challenge/{chal_id}/promise/me/cert/{cert_date}  { content }
-export async function updateCert(token, chalId, certDate, content) {
-  const data = await request('PATCH', `${BASE}/${chalId}/promise/me/cert/${certDate}`, {
+// 이미지 인증 제출  POST /api/v1/challenge/{chal_id}/promise/me/cert/image
+// multipart/form-data, 필드명 file. file={ uri, name, type }
+// 허용: jpg/jpeg/png/gif/webp, 최대 10MB
+export async function submitImageCert(token, chalId, file) {
+  const form = new FormData();
+  form.append('file', file);
+  const data = await request('POST', `${BASE}/${chalId}/promise/me/cert/image`, {
     token,
-    body: { content },
+    body: form,
   });
   return normalizeCert(data);
+}
+
+// 비디오 인증 제출  POST /api/v1/challenge/{chal_id}/promise/me/cert/video
+// multipart/form-data, 필드명 file. file={ uri, name, type }
+// 허용: mp4/mov/webm, 최대 90MB
+export async function submitVideoCert(token, chalId, file) {
+  const form = new FormData();
+  form.append('file', file);
+  const data = await request('POST', `${BASE}/${chalId}/promise/me/cert/video`, {
+    token,
+    body: form,
+  });
+  return normalizeCert(data);
+}
+
+// 인증 첨부파일 다운로드 URL  GET /api/v1/challenge/{chal_id}/certs/file/{auth_tp}/{file_name}
+// CertDto의 image.url/video.url이 이미 절대 URL을 주지만, 상대 경로만 올 때를 대비한 헬퍼.
+// 챌린지 멤버만 접근 가능 → 표시 시 Authorization 헤더가 필요하다(authFileSource 사용).
+export function certFileUrl(chalId, authTp, fileName) {
+  return `${BASE_URL}${BASE}/${chalId}/certs/file/${authTp}/${fileName}`;
+}
+
+// 인증 보호 파일(이미지/비디오)을 RN Image/Video에서 로드할 때 쓰는 source 객체.
+// 다운로드 엔드포인트가 Bearer 토큰을 요구하므로 헤더를 함께 넘긴다.
+// AuthMediaPreview에서 파일명 기준 디스크 캐시 후 로컬 URI로 표시한다.
+export function authFileSource(url, token) {
+  if (!url) return null;
+  return token ? { uri: url, headers: { Authorization: `Bearer ${token}` } } : { uri: url };
 }
 
 // 내 인증 이력  GET /api/v1/challenge/{chal_id}/promise/me/certs?from=&to=

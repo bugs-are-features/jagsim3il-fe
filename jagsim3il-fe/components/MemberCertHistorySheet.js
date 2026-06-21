@@ -3,11 +3,52 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { BottomSheet } from './BottomSheet';
 import { Avatar } from './Avatar';
+import { AuthMediaPreview } from './AuthMediaPreview';
 import { formatCertDate } from '../src/utils/date';
+import { authFileSource } from '../src/api/challenges';
+import { useAuthStore } from '../src/store/authStore';
+
+// 첨부 인증(사진/영상) 칩 + 미리보기
+function CertAttachments({ image, video, token }) {
+  if (!image?.url && !video?.url) return null;
+  return (
+    <View className="mt-2">
+      <View className="flex-row flex-wrap items-center">
+        {image?.url ? (
+          <View className="mr-2 flex-row items-center rounded-full bg-primary-light px-2 py-0.5">
+            <Ionicons name="image" size={12} color="#FF6A3D" />
+            <Text className="ml-1 text-xs font-semibold text-primary">사진</Text>
+          </View>
+        ) : null}
+        {video?.url ? (
+          <View className="mr-2 flex-row items-center rounded-full bg-primary-light px-2 py-0.5">
+            <Ionicons name="videocam" size={12} color="#FF6A3D" />
+            <Text className="ml-1 text-xs font-semibold text-primary">영상</Text>
+          </View>
+        ) : null}
+      </View>
+      {image?.url ? (
+        <AuthMediaPreview
+          source={authFileSource(image.url, token)}
+          type="image"
+          className="mt-2 aspect-[16/9] w-full rounded-xl bg-gray-100"
+        />
+      ) : null}
+      {video?.url ? (
+        <AuthMediaPreview
+          source={authFileSource(video.url, token)}
+          type="video"
+          className="mt-2 aspect-[16/9] w-full rounded-xl bg-gray-100"
+        />
+      ) : null}
+    </View>
+  );
+}
 
 // 멤버 카드 탭 시 — 해당 멤버의 챌린지 인증 내역
 export function MemberCertHistorySheet({ visible, onClose, member }) {
   const insets = useSafeAreaInsets();
+  const token = useAuthStore((s) => s.token);
   if (!member) return null;
 
   const history = member.certHistory ?? [];
@@ -66,6 +107,8 @@ export function MemberCertHistorySheet({ visible, onClose, member }) {
           ) : (
             history.map((cert) => {
               const uploaded = cert.status === 'uploaded';
+              const textContent = cert.text?.content;
+              const hasAttachment = !!(cert.image?.url || cert.video?.url);
               return (
                 <View
                   key={cert.certDate ?? cert.createdAt}
@@ -92,10 +135,13 @@ export function MemberCertHistorySheet({ visible, onClose, member }) {
                       </Text>
                     </View>
                   </View>
-                  {uploaded && cert.content ? (
+                  {textContent ? (
                     <Text className="font-gowunDodum mt-1.5 text-sm leading-5 text-ink-muted">
-                      {cert.content}
+                      {textContent}
                     </Text>
+                  ) : null}
+                  {hasAttachment ? (
+                    <CertAttachments image={cert.image} video={cert.video} token={token} />
                   ) : null}
                 </View>
               );

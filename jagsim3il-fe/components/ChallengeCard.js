@@ -66,6 +66,11 @@ export function ChallengeCard({ challenge, onPress }) {
           <Text className="ml-1 text-sm font-medium text-ink-muted">
             {challenge.memberCount}명
           </Text>
+          {challenge.isOwner ? (
+            <View className="ml-2 rounded-full bg-primary-light px-2 py-0.5">
+              <Text className="text-xs font-semibold text-primary">방장</Text>
+            </View>
+          ) : null}
         </View>
       </View>
     </Pressable>

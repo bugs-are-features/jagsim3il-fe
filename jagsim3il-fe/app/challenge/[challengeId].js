@@ -22,13 +22,16 @@ import { PenaltyEditSheet } from '../../components/PenaltyEditSheet';
 import { StartChallengeSheet } from '../../components/StartChallengeSheet';
 import { JoinCodeSheet } from '../../components/JoinCodeSheet';
 import { PromiseEditSheet } from '../../components/PromiseEditSheet';
+import { AuthSetSheet } from '../../components/AuthSetSheet';
 import { CertSheet } from '../../components/CertSheet';
 import { MemberCertHistorySheet } from '../../components/MemberCertHistorySheet';
 import { LoadingScreen } from '../../components/LoadingScreen';
+import { LoadingOverlay } from '../../components/LoadingOverlay';
 import { ChallengeStatusBanner } from '../../components/ChallengeStatusBanner';
 import { useChallengeStore } from '../../src/store/challengeStore';
 import { useAuthStore } from '../../src/store/authStore';
 import { daysLeft } from '../../src/utils/date';
+import { AUTH_TP_LABEL } from '../../src/api/challenges';
 
 // 인증 요일 (월~일)
 const DAYS = [
@@ -55,13 +58,14 @@ export default function ChallengeScreen() {
   const loadChallengeDetail = useChallengeStore((s) => s.loadChallengeDetail);
   const prepareChallengeDetail = useChallengeStore((s) => s.prepareChallengeDetail);
   const upsertPromise = useChallengeStore((s) => s.upsertPromise);
-  const submitCert = useChallengeStore((s) => s.submitCert);
+  const submitTextCert = useChallengeStore((s) => s.submitTextCert);
+  const submitMediaCert = useChallengeStore((s) => s.submitMediaCert);
   const updateChallenge = useChallengeStore((s) => s.updateChallenge);
+  const setAuthSet = useChallengeStore((s) => s.setAuthSet);
   const startChallenge = useChallengeStore((s) => s.startChallenge);
   const endChallenge = useChallengeStore((s) => s.endChallenge);
   const setJoinInfo = useChallengeStore((s) => s.setJoinInfo);
   const regenerateJoinCode = useChallengeStore((s) => s.regenerateJoinCode);
-  const setMemberMedia = useChallengeStore((s) => s.setMemberMedia);
   const leaveChallenge = useChallengeStore((s) => s.leaveChallenge);
   const loadChallenges = useChallengeStore((s) => s.loadChallenges);
 
@@ -71,10 +75,12 @@ export default function ChallengeScreen() {
   const [penaltyVisible, setPenaltyVisible] = useState(false);
   const [startVisible, setStartVisible] = useState(false);
   const [joinCodeVisible, setJoinCodeVisible] = useState(false);
+  const [authSetVisible, setAuthSetVisible] = useState(false);
   const [promiseEditVisible, setPromiseEditVisible] = useState(false);
   const [certVisible, setCertVisible] = useState(false);
   const [historyMember, setHistoryMember] = useState(null);
   const [submitting, setSubmitting] = useState(false);
+  const [certSubmitting, setCertSubmitting] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
 
   // 내 약속이 있으면 입장한 상태
@@ -88,6 +94,9 @@ export default function ChallengeScreen() {
   const status = currentChallenge?.status ?? 'preparing';
   const isActive = status === 'active';
   const hasPenalty = !!currentChallenge?.penalty;
+  // 인증 방식 (auth_set)
+  const authSet = currentChallenge?.authSet ?? null;
+  const hasAuthSet = Array.isArray(authSet) && authSet.length > 0;
   // 가입 코드 (정규화된 joinCd 또는 설정 후 병합된 값)
   const joinCode =
     currentChallenge?.joinCd ?? currentChallenge?.raw?.join_cd ?? '';
@@ -235,7 +244,22 @@ export default function ChallengeScreen() {
 
   // 오늘 인증(텍스트) 저장 — 실패 시 에러를 시트에서 표시하도록 throw
   const handleCertSave = async (content) => {
-    await submitCert(challengeId, content);
+    setCertSubmitting(true);
+    try {
+      await submitTextCert(challengeId, content);
+    } finally {
+      setCertSubmitting(false);
+    }
+  };
+
+  // 오늘 인증(이미지/비디오) 업로드 — 실패 시 에러를 MediaUploader에서 표시하도록 throw
+  const handlePickMedia = async (_memberId, asset) => {
+    setCertSubmitting(true);
+    try {
+      await submitMediaCert(challengeId, asset);
+    } finally {
+      setCertSubmitting(false);
+    }
   };
 
   // 로딩 중 — 다른 챌린지 state가 보이지 않도록 전환 시에도 전체 화면 로딩
@@ -271,10 +295,10 @@ export default function ChallengeScreen() {
 
             {/* 목표 */}
             <Text className="font-jua text-2xl font-extrabold leading-8 text-ink">
-              어떤 목표에{'\n'}도전할까요?
+              이번 챌린지는{'\n'}어떤 목표에 도전할까요?
             </Text>
             <Text className="font-gowunDodum mt-2 text-lg text-ink-muted">
-              구체적으로 적을수록 인증하기 쉬워져요.
+              목표를 향해 조금씩 나아가보세요.
             </Text>
             <TextInput
               value={goal}
@@ -405,7 +429,30 @@ export default function ChallengeScreen() {
                   <Ionicons name="chevron-forward" size={18} color="#9CA3AF" />
                 </Pressable>
 
-                {/* 3. 패널티 설정 */}
+                {/* 3. 인증 방식 설정 */}
+                <Pressable
+                  onPress={() => setAuthSetVisible(true)}
+                  className="mt-2 flex-row items-center justify-between rounded-xl border border-gray-200 px-3 py-3"
+                >
+                  <View className="flex-1 flex-row items-center">
+                    <Ionicons
+                      name={hasAuthSet ? 'checkmark-circle' : 'ellipse-outline'}
+                      size={20}
+                      color={hasAuthSet ? '#FF6A3D' : '#9CA3AF'}
+                    />
+                    <Text className="ml-2 font-gowunDodum flex-1 text-sm text-ink" numberOfLines={1}>
+                      {hasAuthSet
+                        ? `인증 방식 ${authSet
+                          .map((a) => AUTH_TP_LABEL[a.authTp])
+                          .filter(Boolean)
+                          .join('·')}`
+                        : '인증 방식 설정하기'}
+                    </Text>
+                  </View>
+                  <Ionicons name="chevron-forward" size={18} color="#9CA3AF" />
+                </Pressable>
+
+                {/* 4. 패널티 설정 */}
                 <Pressable
                   onPress={() => setPenaltyVisible(true)}
                   className="mt-2 flex-row items-center justify-between rounded-xl border border-gray-200 px-3 py-3"
@@ -423,7 +470,7 @@ export default function ChallengeScreen() {
                   <Ionicons name="chevron-forward" size={18} color="#9CA3AF" />
                 </Pressable>
 
-                {/* 4. 챌린지 시작 */}
+                {/* 5. 챌린지 시작 */}
                 <Pressable
                   onPress={handleStartPress}
                   disabled={!hasPenalty}
@@ -479,13 +526,12 @@ export default function ChallengeScreen() {
             isMe={isMine(item)}
             started={started}
             status={status}
+            authSet={authSet}
             canEditPromise={canEditPromise}
             onEditPromise={() => setPromiseEditVisible(true)}
             onWriteCert={() => setCertVisible(true)}
             onShowHistory={(m) => setHistoryMember(m)}
-            onPickMedia={(memberId, asset) =>
-              setMemberMedia(challengeId, memberId, asset)
-            }
+            onPickMedia={handlePickMedia}
           />
         )}
       />
@@ -536,6 +582,14 @@ export default function ChallengeScreen() {
         onRegenerate={() => regenerateJoinCode(challengeId)}
       />
 
+      {/* 인증 방식 설정 (방장, 준비 중) */}
+      <AuthSetSheet
+        visible={authSetVisible}
+        onClose={() => setAuthSetVisible(false)}
+        initialAuthSet={authSet}
+        onSave={(next) => setAuthSet(challengeId, next)}
+      />
+
       {/* 내 약속 수정 (시작 전) */}
       <PromiseEditSheet
         visible={promiseEditVisible}
@@ -561,13 +615,11 @@ export default function ChallengeScreen() {
         visible={certVisible}
         onClose={() => setCertVisible(false)}
         goal={myMember?.goal || myPromise?.desc}
-        initialContent={
-          myMember?.todayCert?.status === 'uploaded'
-            ? myMember.todayCert.content
-            : ''
-        }
+        initialContent={myMember?.todayCert?.text?.content || ''}
         onSave={handleCertSave}
       />
+
+      <LoadingOverlay visible={certSubmitting} message="인증 제출 중..." />
     </SafeAreaView>
   );
 }

@@ -4,6 +4,7 @@ import { useAuthStore } from './authStore';
 import {
   listChallenges,
   createChallenge,
+  setAuthSet as setAuthSetApi,
   getChallenge,
   lookupChallenge,
   updateChallenge as updateChallengeApi,
@@ -21,8 +22,9 @@ import {
   listAllCerts,
   listPenalties,
   getMyPenalty,
-  createCert,
-  updateCert as updateCertApi,
+  submitTextCert as submitTextCertApi,
+  submitImageCert as submitImageCertApi,
+  submitVideoCert as submitVideoCertApi,
 } from '../api/challenges';
 import { toApiDate, toApiTime, todayApiDateKST, challengeStartDateKST } from '../utils/date';
 import { sortChallengesForHome } from '../utils/challengeStatus';
@@ -72,16 +74,34 @@ export const useChallengeStore = create((set, get) => ({
     }
   },
 
-  // 생성: { title, description }
-  addChallenge: async ({ title, description }) => {
+  // 생성: { title, description, authSet([{ authTp, required }]) }
+  // auth_set은 백엔드 필수값(최소 1개).
+  addChallenge: async ({ title, description, authSet }) => {
     const newChallenge = await createChallenge(tk(), {
       title,
       desc: description ?? '',
+      authSet,
     });
     if (newChallenge) {
       set((state) => ({ challenges: [newChallenge, ...state.challenges] }));
     }
     return newChallenge;
+  },
+
+  // 인증 방식(auth_set) 변경: 방장·준비 중에서만. authSet=[{ authTp, required }]
+  setAuthSet: async (chalId, authSet) => {
+    const updated = await setAuthSetApi(tk(), chalId, authSet);
+    const nextAuthSet = updated?.authSet ?? authSet;
+    set((state) => ({
+      challenges: state.challenges.map((c) =>
+        c.id === chalId ? { ...c, authSet: nextAuthSet } : c
+      ),
+      currentChallenge:
+        state.currentChallenge?.id === chalId
+          ? { ...state.currentChallenge, authSet: nextAuthSet }
+          : state.currentChallenge,
+    }));
+    return updated;
   },
 
   // 수정: { title?, description?, penalty? } → PATCH { title?, desc?, penalty_desc? }
@@ -309,6 +329,8 @@ export const useChallengeStore = create((set, get) => ({
       const listEntry = get().challenges.find((c) => c.id === chalId) ?? null;
       const mergedChallenge = {
         ...challenge,
+        authSet:
+          challenge?.authSet ?? prev?.authSet ?? listEntry?.authSet ?? null,
         joinCd:
           joinInfo?.joinCd ?? challenge?.joinCd ?? prev?.joinCd ?? listEntry?.joinCd ?? null,
         authYn:
@@ -329,20 +351,9 @@ export const useChallengeStore = create((set, get) => ({
     }
   },
 
-  // 오늘 인증 생성/수정 (텍스트 메모, 1~500자)
-  // 이미 오늘 uploaded 인증이 있으면 PATCH, 없으면 POST.
-  submitCert: async (chalId, content) => {
-    const today = todayApiDateKST();
-    const myLoginId = useAuthStore.getState().user?.username ?? null;
-    const me = get().members.find(
-      (m) => myLoginId != null && String(m.loginId) === String(myLoginId)
-    );
-    const hasToday = me?.todayCert?.status === 'uploaded';
-    if (hasToday) {
-      await updateCertApi(tk(), chalId, today, content);
-    } else {
-      await createCert(tk(), chalId, content);
-    }
+  // 오늘 텍스트 인증 제출 (1~500자). 재제출 시 서버가 기존 텍스트를 덮어쓴다.
+  submitTextCert: async (chalId, content) => {
+    await submitTextCertApi(tk(), chalId, content);
     // 인증 상태/패널티 갱신을 위해 상세를 다시 불러온다.
     await get().loadChallengeDetail(chalId);
   },
@@ -357,19 +368,26 @@ export const useChallengeStore = create((set, get) => ({
     return promise;
   },
 
-  // 인증 미디어(로컬 전용): 백엔드에 미디어 업로드 엔드포인트가 없어
-  // 현재는 화면 상태에만 반영한다(텍스트 인증 createCert와 별개).
-  setMemberMedia: async (chalId, memberId, asset) => {
-    const media = {
-      uri: asset.uri,
-      type: asset.type === 'video' ? 'video' : 'image',
-      width: asset.width ?? null,
-      height: asset.height ?? null,
-    };
-    set((state) => ({
-      members: state.members.map((m) =>
-        m.id === memberId ? { ...m, media } : m
-      ),
-    }));
+  // 오늘 미디어 인증 제출 (이미지/비디오). asset은 expo-image-picker 결과.
+  // multipart/form-data로 업로드한 뒤 상세를 다시 불러와 미리보기를 갱신한다.
+  submitMediaCert: async (chalId, asset) => {
+    const isVideo = asset.type === 'video';
+    // 파일명/확장자/MIME 추론 (asset 메타가 없을 수 있어 안전하게 폴백)
+    const uri = asset.uri ?? '';
+    const uriExt = (uri.split('?')[0].split('.').pop() || '').toLowerCase();
+    const fallbackExt = isVideo ? 'mp4' : 'jpg';
+    const ext = uriExt && uriExt.length <= 4 ? uriExt : fallbackExt;
+    const name = asset.fileName || `cert_${Date.now()}.${ext}`;
+    const type =
+      asset.mimeType ||
+      (isVideo ? `video/${ext === 'mov' ? 'quicktime' : ext}` : `image/${ext === 'jpg' ? 'jpeg' : ext}`);
+    const file = { uri, name, type };
+
+    if (isVideo) {
+      await submitVideoCertApi(tk(), chalId, file);
+    } else {
+      await submitImageCertApi(tk(), chalId, file);
+    }
+    await get().loadChallengeDetail(chalId);
   },
 }));

@@ -26,13 +26,17 @@ export async function request(method, path, { body, params, token, full } = {}) 
     if (qs) url += `?${qs}`;
   }
 
+  // multipart/form-data 업로드면 본문을 직렬화하지 않고 그대로 전달한다.
+  // Content-Type은 fetch가 boundary와 함께 자동 설정하도록 지정하지 않는다.
+  const isForm = typeof FormData !== 'undefined' && body instanceof FormData;
+
   const headers = {};
-  if (body) headers['Content-Type'] = 'application/json';
+  if (body && !isForm) headers['Content-Type'] = 'application/json';
   if (token) headers.Authorization = `Bearer ${token}`;
 
   // ── 요청 로그 ──
   console.log(`[API →] ${method} ${url}`, {
-    body: body ?? null,
+    body: isForm ? '[FormData]' : body ?? null,
     token: token ? `${String(token).slice(0, 8)}…` : null,
   });
 
@@ -41,7 +45,7 @@ export async function request(method, path, { body, params, token, full } = {}) 
     res = await fetch(url, {
       method,
       headers,
-      body: body ? JSON.stringify(body) : undefined,
+      body: body ? (isForm ? body : JSON.stringify(body)) : undefined,
     });
   } catch (e) {
     // 네트워크 자체 실패

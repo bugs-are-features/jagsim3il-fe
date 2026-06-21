@@ -1,29 +1,24 @@
-import { useState } from 'react';
-import { View, Text, Pressable, Image, Alert, ActivityIndicator } from 'react-native';
+import { View, Text, Pressable, Alert } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
-import { useVideoPlayer, VideoView } from 'expo-video';
+import { useAuthStore } from '../src/store/authStore';
+import { AuthMediaPreview } from './AuthMediaPreview';
 
-// 동영상 미리보기 (expo-video)
-function VideoPreview({ uri }) {
-  const player = useVideoPlayer(uri, (p) => {
-    p.loop = true;
-    p.muted = true;
-  });
-  return (
-    <VideoView
-      player={player}
-      style={{ width: '100%', height: '100%' }}
-      contentFit="cover"
-      nativeControls={false}
-    />
-  );
+// kind에 따라 picker가 다룰 미디어 타입
+function mediaTypesFor(kind) {
+  if (kind === 'image') return ['images'];
+  if (kind === 'video') return ['videos'];
+  return ['images', 'videos'];
 }
 
 // 멤버 카드 하단의 이미지/동영상 업로드·촬영 영역
-// editable=true 인 경우(=내 카드)에만 촬영/선택 가능
-export function MediaUploader({ media, onPicked, editable = false }) {
-  const [loading, setLoading] = useState(false);
+// editable=true 인 경우(=내 카드, 인증 가능 상태)에만 촬영/선택 가능
+// kind: 'image' | 'video' (해당 타입만 선택/촬영)
+// media: { uri, type:'image'|'video', remote?:boolean } — remote면 인증 헤더를 붙여 로드
+export function MediaUploader({ media, onPicked, editable = false, kind = 'image', label }) {
+  const token = useAuthStore((s) => s.token);
+
+  const typeLabel = label || (kind === 'video' ? '영상' : '사진');
 
   const pickFromGallery = async () => {
     try {
@@ -33,7 +28,7 @@ export function MediaUploader({ media, onPicked, editable = false }) {
         return;
       }
       const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ['images', 'videos'],
+        mediaTypes: mediaTypesFor(kind),
         quality: 0.8,
       });
       handleResult(result);
@@ -53,12 +48,11 @@ export function MediaUploader({ media, onPicked, editable = false }) {
         return;
       }
       const result = await ImagePicker.launchCameraAsync({
-        mediaTypes: ['images', 'videos'],
+        mediaTypes: mediaTypesFor(kind),
         quality: 0.8,
       });
       handleResult(result);
     } catch (e) {
-      // iOS 시뮬레이터에는 카메라가 없어 여기서 실패한다(실기기에서 테스트 필요).
       Alert.alert(
         '카메라 오류',
         e?.message ||
@@ -70,11 +64,10 @@ export function MediaUploader({ media, onPicked, editable = false }) {
   const handleResult = async (result) => {
     if (result.canceled || !result.assets?.length) return;
     const asset = result.assets[0];
-    setLoading(true);
     try {
+      // 제출 중 전체 화면 로딩은 상위(챌린지 화면)에서 처리한다.
       await onPicked({
         uri: asset.uri,
-        // expo-image-picker asset.type: 'image' | 'video'
         type: asset.type === 'video' ? 'video' : 'image',
         width: asset.width,
         height: asset.height,
@@ -83,49 +76,45 @@ export function MediaUploader({ media, onPicked, editable = false }) {
       });
     } catch (e) {
       Alert.alert('오류', e?.message || '미디어를 처리하지 못했어요.');
-    } finally {
-      setLoading(false);
     }
   };
 
   const showChoice = () => {
-    Alert.alert('인증 등록', '어떻게 등록할까요?', [
+    Alert.alert(`${typeLabel} 인증`, '어떻게 등록할까요?', [
       { text: '카메라로 촬영', onPress: takeWithCamera },
       { text: '갤러리에서 선택', onPress: pickFromGallery },
       { text: '취소', style: 'cancel' },
     ]);
   };
 
+  // 원격(이미 업로드된) 파일은 다운로드 시 Bearer 토큰이 필요하다.
+  const buildSource = () => {
+    if (!media?.uri) return null;
+    if (media.remote && token) {
+      return { uri: media.uri, headers: { Authorization: `Bearer ${token}` } };
+    }
+    return { uri: media.uri };
+  };
+
   // 미디어가 있을 때: 미리보기 (항상 16:9 고정, cover로 채움)
   if (media?.uri) {
+    const source = buildSource();
     return (
       <Pressable
         onPress={editable ? showChoice : undefined}
         disabled={!editable}
         className="mt-2 aspect-[16/9] w-full overflow-hidden rounded-xl bg-gray-100"
       >
-        {media.type === 'video' ? (
-          <VideoPreview uri={media.uri} />
-        ) : (
-          <Image source={{ uri: media.uri }} className="h-full w-full" resizeMode="cover" />
-        )}
-        {media.type === 'video' && (
-          <View className="absolute inset-0 items-center justify-center">
-            <View className="h-10 w-10 items-center justify-center rounded-full bg-black/50">
-              <Ionicons name="play" size={20} color="white" />
-            </View>
+        <AuthMediaPreview
+          source={source}
+          type={media.type === 'video' ? 'video' : 'image'}
+          className="h-full w-full"
+        />
+        {editable ? (
+          <View className="absolute right-2 top-2 rounded-full bg-black/50 px-2 py-1">
+            <Text className="text-xs text-white">변경</Text>
           </View>
-        )}
-        {editable && (
-          <>
-            <View className="absolute left-2 top-2 rounded-full bg-amber-500/90 px-2 py-1">
-              <Text className="text-xs font-semibold text-white">미저장</Text>
-            </View>
-            <View className="absolute right-2 top-2 rounded-full bg-black/50 px-2 py-1">
-              <Text className="text-xs text-white">변경</Text>
-            </View>
-          </>
-        )}
+        ) : null}
       </Pressable>
     );
   }
@@ -134,16 +123,16 @@ export function MediaUploader({ media, onPicked, editable = false }) {
   return (
     <Pressable
       onPress={editable ? showChoice : undefined}
-      disabled={!editable || loading}
+      disabled={!editable}
       className={`mt-2 aspect-[16/9] w-full items-center justify-center rounded-xl border border-dashed ${editable ? 'border-primary/40 bg-primary-light/40' : 'border-gray-200 bg-gray-50'
         }`}
     >
-      {loading ? (
-        <ActivityIndicator color="#FF6A3D" />
-      ) : editable ? (
+      {editable ? (
         <>
-          <Ionicons name="camera-outline" size={26} color="#FF6A3D" />
-          <Text className="mt-1 text-md font-gowunDodum font-medium text-primary">인증 올리기</Text>
+          <Ionicons name={kind === 'video' ? 'videocam-outline' : 'camera-outline'} size={26} color="#FF6A3D" />
+          <Text className="mt-1 text-md font-gowunDodum font-medium text-primary">
+            {typeLabel} 인증 올리기
+          </Text>
         </>
       ) : (
         <>

@@ -3,9 +3,17 @@ import { Ionicons } from '@expo/vector-icons';
 import { Avatar } from './Avatar';
 import { MediaUploader } from './MediaUploader';
 import { isCertDayToday, todayWeekdayKeyKST } from '../src/utils/date';
+import { AUTH_TP } from '../src/api/challenges';
 
 const DAY_LABELS = { mon: '월', tue: '화', wed: '수', thu: '목', fri: '금', sat: '토', sun: '일' };
 const DAY_ORDER = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'];
+
+// 인증 타입 표시 메타
+const TYPE_META = {
+  [AUTH_TP.TEXT]: { icon: 'document-text-outline', label: '텍스트', kind: 'text' },
+  [AUTH_TP.IMAGE]: { icon: 'image-outline', label: '사진', kind: 'image' },
+  [AUTH_TP.VIDEO]: { icon: 'videocam-outline', label: '영상', kind: 'video' },
+};
 
 function formatCertDays(certDays) {
   if (!certDays) return '';
@@ -39,12 +47,98 @@ function CertStatsRow({ stats }) {
   );
 }
 
+// 인증 타입별 라벨 헤더 (아이콘 + 이름 + 필수/제출 표시)
+function CertTypeHeader({ authTp, required, submitted }) {
+  const meta = TYPE_META[authTp];
+  if (!meta) return null;
+  return (
+    <View className="mb-1.5 flex-row items-center">
+      <Ionicons name={meta.icon} size={14} color="#FF6A3D" />
+      <Text className="font-gowunDodum ml-1 text-sm font-semibold text-ink">{meta.label} 인증</Text>
+      {required ? (
+        <View className="ml-1.5 rounded-full bg-red-50 px-1.5 py-0.5">
+          <Text className="text-[10px] font-semibold text-red-500">필수</Text>
+        </View>
+      ) : (
+        <View className="ml-1.5 rounded-full bg-gray-100 px-1.5 py-0.5">
+          <Text className="text-[10px] font-semibold text-ink-faint">선택</Text>
+        </View>
+      )}
+      {submitted ? (
+        <Ionicons name="checkmark-circle" size={14} color="#FF6A3D" style={{ marginLeft: 6 }} />
+      ) : null}
+    </View>
+  );
+}
+
+// 인증 타입별 입력/미리보기 블록
+function CertTypeBlock({ authTp, required, cert, editable, isMe, onWriteText, onPickMedia }) {
+  const meta = TYPE_META[authTp];
+  if (!meta) return null;
+
+  // 텍스트 인증
+  if (meta.kind === 'text') {
+    const text = cert?.text;
+    return (
+      <View className="mt-3">
+        <CertTypeHeader authTp={authTp} required={required} submitted={!!text} />
+        {text ? (
+          <View className="rounded-xl border border-primary/30 bg-primary-light/30 px-3 py-2.5">
+            <Text className="font-gowunDodum text-sm leading-5 text-ink">
+              {text.content || '인증 완료'}
+            </Text>
+            {editable ? (
+              <Pressable onPress={onWriteText} hitSlop={8} className="mt-1.5 flex-row items-center self-start">
+                <Ionicons name="pencil" size={13} color="#FF6A3D" />
+                <Text className="ml-1 text-xs font-semibold text-primary">인증 수정</Text>
+              </Pressable>
+            ) : null}
+          </View>
+        ) : editable ? (
+          <Pressable
+            onPress={onWriteText}
+            className="flex-row items-center justify-center rounded-xl border border-dashed border-primary/40 bg-primary-light/40 py-3"
+          >
+            <Ionicons name="create-outline" size={18} color="#FF6A3D" />
+            <Text className="font-gowunDodum ml-1.5 text-md font-semibold text-primary">
+              텍스트 인증하기
+            </Text>
+          </Pressable>
+        ) : (
+          <View className="flex-row items-center rounded-xl bg-gray-50 px-3 py-2.5">
+            <Ionicons name="hourglass-outline" size={16} color="#9CA3AF" />
+            <Text className="font-gowunDodum ml-1.5 text-sm text-ink-faint">인증 대기 중</Text>
+          </View>
+        )}
+      </View>
+    );
+  }
+
+  // 이미지/비디오 인증
+  const part = meta.kind === 'video' ? cert?.video : cert?.image;
+  const media = part?.url
+    ? { uri: part.url, type: meta.kind === 'video' ? 'video' : 'image', remote: true }
+    : null;
+  return (
+    <View className="mt-3">
+      <CertTypeHeader authTp={authTp} required={required} submitted={!!media} />
+      <MediaUploader
+        media={media}
+        editable={editable}
+        kind={meta.kind}
+        onPicked={(asset) => onPickMedia?.(asset)}
+      />
+    </View>
+  );
+}
+
 export function MemberCard({
   member,
   isMe,
   onPickMedia,
   started = false,
   status = 'preparing',
+  authSet,
   onWriteCert,
   canEditPromise = false,
   onEditPromise,
@@ -57,6 +151,15 @@ export function MemberCard({
   const todayKey = todayWeekdayKeyKST();
   const isCertDay = isCertDayToday(member.certDays, todayKey);
   const stats = member.certStats;
+
+  // 인증 방식: 설정이 없으면 텍스트 기본값으로 폴백
+  const types =
+    Array.isArray(authSet) && authSet.length
+      ? authSet
+      : [{ authTp: AUTH_TP.TEXT, required: false }];
+
+  // 내 카드 · 진행 중 · 인증 요일이면 입력 가능
+  const editable = isMe && isActive && isCertDay;
 
   const cardBody = (
     <>
@@ -110,64 +213,38 @@ export function MemberCard({
       ) : null}
 
       {started ? (
-        <View className="mt-2">
-          {uploaded ? (
-            <View className="rounded-xl border border-primary/30 bg-primary-light/30 px-3 py-2.5">
-              <Text className="font-gowunDodum text-sm leading-5 text-ink">
-                {cert?.content || '인증 완료'}
+        !isCertDay ? (
+          // 오늘 인증 요일 아님 — 인증 입력 없이 집계만 표시
+          <View className="mt-2">
+            <View className="mb-2 flex-row items-center">
+              <Ionicons name="cafe-outline" size={16} color="#9CA3AF" />
+              <Text className="font-gowunDodum ml-1.5 text-sm text-ink-faint">
+                {isMe ? '오늘은 인증 요일이 아니에요' : '오늘은 인증 요일이 아님'}
               </Text>
-              {isMe && isActive && isCertDay ? (
-                <Pressable
-                  onPress={() => onWriteCert?.(member)}
-                  hitSlop={8}
-                  className="mt-1.5 flex-row items-center self-start"
-                >
-                  <Ionicons name="pencil" size={13} color="#FF6A3D" />
-                  <Text className="ml-1 text-xs font-semibold text-primary">인증 수정</Text>
-                </Pressable>
-              ) : null}
             </View>
-          ) : isMe && isActive && isCertDay ? (
-            <Pressable
-              onPress={() => onWriteCert?.(member)}
-              className="flex-row items-center justify-center rounded-xl border border-dashed border-primary/40 bg-primary-light/40 py-3"
-            >
-              <Ionicons name="create-outline" size={18} color="#FF6A3D" />
-              <Text className="font-gowunDodum ml-1.5 text-md font-semibold text-primary">
-                오늘 인증하기
-              </Text>
-            </Pressable>
-          ) : !isCertDay ? (
-            // 오늘 인증 요일 아님 — 대기 카드 없이 집계만 표시
-            <View>
-              <View className="mb-2 flex-row items-center">
-                <Ionicons name="cafe-outline" size={16} color="#9CA3AF" />
-                <Text className="font-gowunDodum ml-1.5 text-sm text-ink-faint">
-                  {isMe ? '오늘은 인증 요일이 아니에요' : '오늘은 인증 요일이 아님'}
-                </Text>
-              </View>
-              <CertStatsRow stats={stats} />
-            </View>
-          ) : isActive && !isMe ? (
-            // 인증 요일 · 다른 멤버 · 미인증 → 대기 표시
-            <View className="flex-row items-center rounded-xl bg-gray-50 px-3 py-2.5">
-              <Ionicons name="hourglass-outline" size={16} color="#9CA3AF" />
-              <Text className="font-gowunDodum ml-1.5 text-sm text-ink-faint">인증 대기 중</Text>
-            </View>
-          ) : null}
-        </View>
+            <CertStatsRow stats={stats} />
+          </View>
+        ) : (
+          // 인증 요일 — 인증 방식별 입력/미리보기
+          <View>
+            {types.map((t) => (
+              <CertTypeBlock
+                key={t.authTp}
+                authTp={t.authTp}
+                required={t.required}
+                cert={cert}
+                editable={editable}
+                isMe={isMe}
+                onWriteText={() => onWriteCert?.(member)}
+                onPickMedia={(asset) => onPickMedia?.(member.id, asset)}
+              />
+            ))}
+          </View>
+        )
       ) : null}
 
       {started ? (
-        <MediaUploader
-          media={member.media}
-          editable={isMe && isActive && isCertDay}
-          onPicked={(asset) => onPickMedia(member.id, asset)}
-        />
-      ) : null}
-
-      {started ? (
-        <Text className="font-gowunDodum mt-2 text-center text-xs text-ink-faint">
+        <Text className="font-gowunDodum mt-3 text-center text-xs text-ink-faint">
           탭하여 인증 내역 보기
         </Text>
       ) : null}

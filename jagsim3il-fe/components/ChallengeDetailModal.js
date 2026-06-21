@@ -4,6 +4,15 @@ import { Ionicons } from '@expo/vector-icons';
 import { AvatarStack } from './Avatar';
 import { BottomSheet } from './BottomSheet';
 import { formatDateTime } from '../src/utils/date';
+import { AUTH_TP_LABEL } from '../src/api/challenges';
+
+// 인증 방식 요약 텍스트 (예: "사진(필수), 텍스트")
+function formatAuthSet(authSet) {
+  if (!Array.isArray(authSet) || authSet.length === 0) return null;
+  return authSet
+    .map((a) => `${AUTH_TP_LABEL[a.authTp] ?? '기타'}${a.required ? '(필수)' : ''}`)
+    .join(', ');
+}
 
 // iconOffset: 아이콘만 미세 이동 (예: { x: 1, y: -1 })
 function Row({ icon, label, value, iconOffset = { x: 0, y: 0 } }) {
@@ -82,6 +91,14 @@ export function ChallengeDetailModal({
           value={challenge.penalty}
           iconOffset={{ x: 0, y: -1 }}
         />
+        {formatAuthSet(challenge.authSet) ? (
+          <Row
+            icon="checkmark-done-outline"
+            label="인증 방식"
+            value={formatAuthSet(challenge.authSet)}
+            iconOffset={{ x: 0, y: 0 }}
+          />
+        ) : null}
 
         <View className="mb-2 flex-row items-center justify-between">
           <Text className="text-sm font-gowunDodum text-ink-faint">챌린지 멤버: {challenge.memberCount}명</Text>
