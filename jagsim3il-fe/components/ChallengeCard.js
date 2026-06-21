@@ -10,7 +10,7 @@ export function ChallengeCard({ challenge, onPress }) {
   return (
     <Pressable
       onPress={onPress}
-      className={`mb-3 rounded-2xl p-4 shadow-sm active:opacity-90 ${display.cardBg} ${display.cardBorder}`}
+      className={`mb-3 rounded-2xl p-4 shadow-sm active:opacity-90 ${display.cardBg}`}
       style={{
         shadowColor: '#000',
         shadowOpacity: display.status === 'ended' ? 0.03 : 0.06,

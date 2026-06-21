@@ -51,16 +51,14 @@ export function AuthSetSelector({ value = [], onChange }) {
           <Pressable
             key={tp}
             onPress={() => toggleEnabled(tp)}
-            className={`mb-2 flex-row items-center rounded-2xl border px-3 py-3 ${
-              enabled ? 'border-primary bg-primary-light/40' : 'border-gray-200 bg-white'
-            }`}
+            className={`mb-2 flex-row items-center rounded-2xl border px-3 py-3 ${enabled ? 'border-primary bg-primary-light/40' : 'border-gray-200 bg-white'
+              }`}
           >
             <View
-              className={`mr-3 h-10 w-10 items-center justify-center rounded-full ${
-                enabled ? 'bg-primary' : 'bg-gray-100'
-              }`}
+              className={`mr-3 h-10 w-10 items-center justify-center rounded-full ${enabled ? 'bg-primary' : 'bg-gray-100'
+                }`}
             >
-              <Ionicons name={meta.icon} size={20} color={enabled ? '#FFFFFF' : '#9CA3AF'} />
+              <Ionicons name={meta.icon} size={20} style={{ marginLeft: 1 }} color={enabled ? '#FFFFFF' : '#9CA3AF'} />
             </View>
 
             <View className="flex-1">
@@ -73,9 +71,8 @@ export function AuthSetSelector({ value = [], onChange }) {
               <Pressable
                 onPress={() => toggleRequired(tp)}
                 hitSlop={8}
-                className={`mr-2 flex-row items-center rounded-full px-2.5 py-1 ${
-                  required ? 'bg-primary' : 'bg-white border border-gray-300'
-                }`}
+                className={`mr-2 flex-row items-center rounded-full px-2.5 py-1 ${required ? 'bg-primary' : 'bg-white border border-gray-300'
+                  }`}
               >
                 <Ionicons
                   name={required ? 'alert-circle' : 'alert-circle-outline'}
@@ -83,9 +80,8 @@ export function AuthSetSelector({ value = [], onChange }) {
                   color={required ? '#FFFFFF' : '#9CA3AF'}
                 />
                 <Text
-                  className={`ml-1 text-xs font-semibold ${
-                    required ? 'text-white' : 'text-ink-faint'
-                  }`}
+                  className={`ml-1 text-xs font-semibold ${required ? 'text-white' : 'text-ink-faint'
+                    }`}
                 >
                   필수
                 </Text>

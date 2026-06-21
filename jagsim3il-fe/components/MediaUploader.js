@@ -96,26 +96,25 @@ export function MediaUploader({ media, onPicked, editable = false, kind = 'image
     return { uri: media.uri };
   };
 
-  // 미디어가 있을 때: 미리보기 (항상 16:9 고정, cover로 채움)
+  // 미디어가 있을 때: 미리보기 (탭 → 뷰어, 변경 버튼 → 재업로드)
   if (media?.uri) {
     const source = buildSource();
     return (
-      <Pressable
-        onPress={editable ? showChoice : undefined}
-        disabled={!editable}
-        className="mt-2 aspect-[16/9] w-full overflow-hidden rounded-xl bg-gray-100"
-      >
+      <View className="relative mt-2">
         <AuthMediaPreview
           source={source}
           type={media.type === 'video' ? 'video' : 'image'}
-          className="h-full w-full"
+          className="rounded-xl"
         />
         {editable ? (
-          <View className="absolute right-2 top-2 rounded-full bg-black/50 px-2 py-1">
+          <Pressable
+            onPress={showChoice}
+            className="absolute right-2 top-2 rounded-full bg-black/50 px-2 py-1"
+          >
             <Text className="text-xs text-white">변경</Text>
-          </View>
+          </Pressable>
         ) : null}
-      </Pressable>
+      </View>
     );
   }
 

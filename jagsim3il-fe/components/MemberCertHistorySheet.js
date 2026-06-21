@@ -31,14 +31,14 @@ function CertAttachments({ image, video, token }) {
         <AuthMediaPreview
           source={authFileSource(image.url, token)}
           type="image"
-          className="mt-2 aspect-[16/9] w-full rounded-xl bg-gray-100"
+          className="mt-2 rounded-xl"
         />
       ) : null}
       {video?.url ? (
         <AuthMediaPreview
           source={authFileSource(video.url, token)}
           type="video"
-          className="mt-2 aspect-[16/9] w-full rounded-xl bg-gray-100"
+          className="mt-2 rounded-xl"
         />
       ) : null}
     </View>

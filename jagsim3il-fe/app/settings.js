@@ -135,7 +135,9 @@ export default function SettingsScreen() {
               <Switch
                 value={pushEnabled}
                 onValueChange={setPushEnabled}
-                trackColor={{ true: '#FF6A3D' }}
+                trackColor={{ false: '#D1D5DB', true: '#FF6A3D' }}
+                thumbColor="#FFFFFF"
+                ios_backgroundColor="#D1D5DB"
               />
             }
           />
@@ -157,7 +159,7 @@ export default function SettingsScreen() {
       </ScrollView>
 
       <Text className="font-gowunDodum px-5 pb-1 text-right text-xs text-ink-faint">
-        v0.0.0
+        v0.6.17
       </Text>
     </SafeAreaView>
   );

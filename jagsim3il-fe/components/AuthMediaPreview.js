@@ -1,127 +1,193 @@
-import { useEffect, useState } from 'react';
-import { View, Image, ActivityIndicator, Text } from 'react-native';
+import { useState } from 'react';
+import { View, ActivityIndicator, Text, Pressable, StyleSheet } from 'react-native';
+import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
 import { useVideoPlayer, VideoView } from 'expo-video';
 import { useCachedAuthFile } from '../src/hooks/useCachedAuthFile';
+import { MediaViewerModal } from './MediaViewerModal';
 
-// 미디어 영역 중앙 로딩 표시
+const styles = StyleSheet.create({
+  // iOS에서 expo-image는 부모 aspectRatio + width/height 100% 조합이 가장 안정적
+  previewBox: {
+    position: 'relative',
+    width: '100%',
+    aspectRatio: 16 / 9,
+    overflow: 'hidden',
+    backgroundColor: '#F3F4F6',
+  },
+  mediaFill: {
+    width: '100%',
+    height: '100%',
+  },
+});
+
+function PreviewContainer({ className, children }) {
+  return (
+    <View className={className} style={styles.previewBox}>
+      {children}
+    </View>
+  );
+}
+
+// 미디어 영역 중앙 로딩 (캐시 resolve 중에만)
 function MediaLoadingOverlay() {
   return (
-    <View className="absolute inset-0 items-center justify-center bg-gray-100">
+    <View style={StyleSheet.absoluteFillObject} className="items-center justify-center bg-gray-100">
       <ActivityIndicator size="large" color="#FF6A3D" />
     </View>
   );
 }
 
-// 원격 인증 이미지 미리보기 (캐시 → 로컬 file:// 로드)
-function RemoteImagePreview({ source, className }) {
-  const { uri, loading: cacheLoading, error } = useCachedAuthFile(source);
-  const [decodeLoading, setDecodeLoading] = useState(true);
+function TapToViewBadge({ type }) {
+  return (
+    <View className="absolute bottom-2 left-2 flex-row items-center rounded-full bg-black/50 px-2.5 py-1">
+      <Ionicons name={type === 'video' ? 'play-circle-outline' : 'expand-outline'} size={14} color="white" />
+      <Text className="ml-1 text-xs text-white">{type === 'video' ? '탭하여 재생' : '탭하여 보기'}</Text>
+    </View>
+  );
+}
 
-  useEffect(() => {
-    setDecodeLoading(true);
-  }, [uri]);
+function CachedImage({ source, contentFit = 'cover' }) {
+  if (!source?.uri) return null;
+  return (
+    <Image
+      source={source}
+      style={styles.mediaFill}
+      contentFit={contentFit}
+      cachePolicy="disk"
+      transition={0}
+      recyclingKey={source.uri}
+    />
+  );
+}
 
-  const loading = cacheLoading || (!!uri && decodeLoading);
+function RemoteImagePreview({ imageSource, loading, error, className, openViewer, viewerEnabled }) {
+  const canView = viewerEnabled && !loading && !!imageSource;
 
   return (
-    <View className={`relative ${className ?? 'aspect-[16/9] w-full'}`}>
-      {uri ? (
-        <Image
-          source={{ uri }}
-          className="h-full w-full"
-          resizeMode="cover"
-          onLoadStart={() => setDecodeLoading(true)}
-          onLoad={() => setDecodeLoading(false)}
-          onError={() => setDecodeLoading(false)}
+    <PreviewContainer className={className}>
+      {imageSource ? <CachedImage source={imageSource} /> : null}
+      {loading ? <MediaLoadingOverlay /> : null}
+      {canView ? <TapToViewBadge type="image" /> : null}
+      {canView ? (
+        <Pressable
+          onPress={openViewer}
+          accessibilityRole="button"
+          style={StyleSheet.absoluteFillObject}
         />
       ) : null}
-      {loading ? <MediaLoadingOverlay /> : null}
-      {error && !loading ? (
-        <View className="absolute inset-0 items-center justify-center bg-gray-100 px-4">
+      {error && !imageSource && !loading ? (
+        <View style={StyleSheet.absoluteFillObject} className="items-center justify-center bg-gray-100 px-4">
           <Ionicons name="image-outline" size={28} color="#9CA3AF" />
           <Text className="font-gowunDodum mt-2 text-center text-xs text-ink-faint">
             이미지를 불러오지 못했어요
           </Text>
         </View>
       ) : null}
-    </View>
+    </PreviewContainer>
   );
 }
 
-// 원격 인증 영상 미리보기 (캐시 → 로컬 file:// 로드)
-function RemoteVideoPreview({ source, className }) {
-  const { uri, loading: cacheLoading, error } = useCachedAuthFile(source);
-  const [playLoading, setPlayLoading] = useState(true);
-  const player = useVideoPlayer(uri ? { uri } : null, (p) => {
+function RemoteVideoPlayer({ videoSource, className, openViewer, viewerEnabled }) {
+  const player = useVideoPlayer(videoSource, (p) => {
     p.loop = true;
     p.muted = true;
   });
 
-  useEffect(() => {
-    setPlayLoading(true);
-    if (!player || !uri) return undefined;
-
-    if (player.status === 'readyToPlay') {
-      setPlayLoading(false);
-    }
-
-    let sub = null;
-    if (typeof player.addListener === 'function') {
-      sub = player.addListener('statusChange', ({ status }) => {
-        if (status === 'loading') setPlayLoading(true);
-        if (status === 'readyToPlay' || status === 'error') setPlayLoading(false);
-      });
-    }
-
-    const fallback = setTimeout(() => setPlayLoading(false), 8000);
-
-    return () => {
-      sub?.remove?.();
-      clearTimeout(fallback);
-    };
-  }, [player, uri]);
-
-  const loading = cacheLoading || (!!uri && playLoading);
+  const canView = viewerEnabled && !!videoSource;
 
   return (
-    <View className={`relative ${className ?? 'aspect-[16/9] w-full'}`}>
-      {uri ? (
-        <VideoView
-          player={player}
-          style={{ width: '100%', height: '100%' }}
-          contentFit="cover"
-          nativeControls={false}
+    <PreviewContainer className={className}>
+      <VideoView
+        player={player}
+        style={styles.mediaFill}
+        contentFit="cover"
+        nativeControls={false}
+      />
+      <View pointerEvents="none" style={StyleSheet.absoluteFillObject} className="items-center justify-center">
+        <View className="h-10 w-10 items-center justify-center rounded-full bg-black/50">
+          <Ionicons name="play" size={20} color="white" />
+        </View>
+      </View>
+      {canView ? <TapToViewBadge type="video" /> : null}
+      {canView ? (
+        <Pressable
+          onPress={openViewer}
+          accessibilityRole="button"
+          style={StyleSheet.absoluteFillObject}
         />
       ) : null}
-      {!loading && uri ? (
-        <View className="absolute inset-0 items-center justify-center">
-          <View className="h-10 w-10 items-center justify-center rounded-full bg-black/50">
-            <Ionicons name="play" size={20} color="white" />
-          </View>
-        </View>
-      ) : null}
-      {loading ? <MediaLoadingOverlay /> : null}
-      {error && !loading ? (
-        <View className="absolute inset-0 items-center justify-center bg-gray-100 px-4">
-          <Ionicons name="videocam-outline" size={28} color="#9CA3AF" />
-          <Text className="font-gowunDodum mt-2 text-center text-xs text-ink-faint">
-            영상을 불러오지 못했어요
-          </Text>
-        </View>
-      ) : null}
-    </View>
+    </PreviewContainer>
   );
 }
 
-// 인증 첨부파일(이미지/영상) 미리보기
-// source: { uri, headers? } — 원격 인증 URL은 파일명 기준 디스크 캐시 후 로컬에서 표시
-// type: 'image' | 'video'
-export function AuthMediaPreview({ source, type = 'image', className = 'aspect-[16/9] w-full rounded-xl bg-gray-100' }) {
+function RemoteVideoPreview({ imageSource, uri, loading, error, className, openViewer, viewerEnabled }) {
+  const videoSource = imageSource ?? (uri ? { uri } : null);
+
+  if (loading) {
+    return (
+      <PreviewContainer className={className}>
+        <MediaLoadingOverlay />
+      </PreviewContainer>
+    );
+  }
+
+  if (!videoSource) {
+    return (
+      <PreviewContainer className={className}>
+        <View style={StyleSheet.absoluteFillObject} className="items-center justify-center px-4">
+          <Ionicons name="videocam-outline" size={28} color="#9CA3AF" />
+          <Text className="font-gowunDodum mt-2 text-center text-xs text-ink-faint">
+            {error ? '영상을 불러오지 못했어요' : '영상 없음'}
+          </Text>
+        </View>
+      </PreviewContainer>
+    );
+  }
+
+  return (
+    <RemoteVideoPlayer
+      videoSource={videoSource}
+      className={className}
+      openViewer={openViewer}
+      viewerEnabled={viewerEnabled}
+    />
+  );
+}
+
+// 인증 첨부파일(이미지/영상) 미리보기 — 탭 시 전체 화면 뷰어
+export function AuthMediaPreview({
+  source,
+  type = 'image',
+  className = 'rounded-xl',
+  viewerEnabled = true,
+}) {
+  const [viewerVisible, setViewerVisible] = useState(false);
+  const cached = useCachedAuthFile(source);
+
   if (!source?.uri) return null;
 
-  if (type === 'video') {
-    return <RemoteVideoPreview source={source} className={className} />;
-  }
-  return <RemoteImagePreview source={source} className={className} />;
+  const shared = {
+    ...cached,
+    className,
+    openViewer: () => setViewerVisible(true),
+    viewerEnabled,
+  };
+
+  return (
+    <>
+      {type === 'video' ? (
+        <RemoteVideoPreview {...shared} />
+      ) : (
+        <RemoteImagePreview {...shared} />
+      )}
+
+      <MediaViewerModal
+        visible={viewerVisible}
+        onClose={() => setViewerVisible(false)}
+        cached={cached}
+        type={type}
+      />
+    </>
+  );
 }
