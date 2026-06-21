@@ -70,7 +70,7 @@ export default function LoginScreen() {
             placeholder="아이디 또는 이메일을 입력하세요"
             placeholderTextColor="#9CA3AF"
             autoCapitalize="none"
-            className="mb-4 rounded-xl border border-gray-200 bg-gray-50 px-4 py-3.5 text-base text-ink"
+            className="font-gowunDodum mb-4 rounded-xl border border-gray-200 bg-gray-50 px-4 py-3.5 text-base text-ink"
           />
 
           {/* 비밀번호 */}
@@ -81,7 +81,7 @@ export default function LoginScreen() {
             placeholder="비밀번호를 입력하세요"
             placeholderTextColor="#9CA3AF"
             secureTextEntry
-            className="rounded-xl border border-gray-200 bg-gray-50 px-4 py-3.5 text-base text-ink"
+            className="font-gowunDodum rounded-xl border border-gray-200 bg-gray-50 px-4 py-3.5 text-base text-ink"
           />
 
           {/* 에러 메시지 (입력 검증 또는 서버 응답) */}

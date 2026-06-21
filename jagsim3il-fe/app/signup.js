@@ -13,8 +13,10 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, Link } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { Checkbox } from '../components/Checkbox';
+import { LegalSheet } from '../components/LegalSheet';
 import { useAuthStore } from '../src/store/authStore';
 import { checkIdRequest, checkEmailRequest } from '../src/api/auth';
+import { TERMS_OF_SERVICE, PRIVACY_POLICY } from '../src/data/legal';
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 // 비밀번호: 8~32자, 영문·숫자·기호(!@#$%^&*) 모두 포함 (백엔드 규칙)
@@ -23,15 +25,15 @@ const PW_RE = /^(?=.*[A-Za-z])(?=.*\d)(?=.*[!@#$%^&*])[A-Za-z\d!@#$%^&*]{8,32}$/
 function Field({ label, error, ...props }) {
   return (
     <View className="mb-4">
-      <Text className="mb-2 text-lg font-semibold text-ink">{label}</Text>
+      <Text className="font-gowunDodum mb-2 text-lg font-semibold text-ink">{label}</Text>
       <TextInput
         placeholderTextColor="#9CA3AF"
-        className={`rounded-xl border bg-gray-50 px-4 py-3.5 text-base text-ink ${
+        className={`font-gowunDodum rounded-xl border bg-gray-50 px-4 py-3.5 text-base text-ink ${
           error ? 'border-red-400' : 'border-gray-200'
         }`}
         {...props}
       />
-      {error ? <Text className="mt-1 text-sm text-red-500">{error}</Text> : null}
+      {error ? <Text className="font-gowunDodum mt-1 text-sm text-red-500">{error}</Text> : null}
     </View>
   );
 }
@@ -49,10 +51,12 @@ export default function SignupScreen() {
     passwordConfirm: '',
   });
   const [agreed, setAgreed] = useState(false);
+  const [nightPush, setNightPush] = useState(false); // (선택) 야간 푸시 알림 동의
   const [submitted, setSubmitted] = useState(false);
   const [serverError, setServerError] = useState('');
   const [fieldErrors, setFieldErrors] = useState({}); // 서버 중복확인 등 필드별 에러
   const [done, setDone] = useState(false); // 가입 완료(이메일 인증 안내) 상태
+  const [legalDoc, setLegalDoc] = useState(null); // 약관/방침 바텀시트로 볼 문서
 
   const set = (key) => (value) => setForm((f) => ({ ...f, [key]: value }));
 
@@ -126,10 +130,10 @@ export default function SignupScreen() {
           <View className="mb-6 h-20 w-20 items-center justify-center rounded-full bg-primary-light">
             <Ionicons name="mail-unread-outline" size={40} color="#FF6A3D" />
           </View>
-          <Text className="mb-3 text-center text-2xl font-extrabold text-ink">
+          <Text className="mb-3 font-jua text-center text-2xl font-extrabold text-ink">
             가입이 완료되었어요!
           </Text>
-          <Text className="mb-8 text-center text-base leading-6 text-ink-muted">
+          <Text className="mb-8 font-gowunDodum text-center text-base leading-6 text-ink-muted">
             {form.email.trim()}로{'\n'}인증 메일을 보냈어요.{'\n'}
             메일의 링크를 클릭한 뒤 로그인해 주세요.
           </Text>
@@ -137,7 +141,7 @@ export default function SignupScreen() {
             onPress={() => router.replace('/login')}
             className="w-full items-center rounded-xl bg-primary py-4"
           >
-            <Text className="text-base font-bold text-white">로그인하러 가기</Text>
+            <Text className="font-jua text-xl font-bold text-white">로그인하러 가기</Text>
           </Pressable>
         </View>
       </SafeAreaView>
@@ -208,18 +212,32 @@ export default function SignupScreen() {
             error={submitted ? errors.passwordConfirm : ''}
           />
 
-          {/* 약관 동의 */}
+          {/* 약관 동의 (이용약관 / 개인정보 처리방침 텍스트를 누르면 내용 표시) */}
           <View className="mb-2 mt-1 rounded-xl bg-gray-50 px-3">
-            <Checkbox
-              checked={agreed}
-              onToggle={() => setAgreed((v) => !v)}
-              label="(필수) 서비스 이용약관 및 개인정보 처리방침에 동의합니다."
-            />
+            <Checkbox checked={agreed} onToggle={() => setAgreed((v) => !v)}>
+              <Text className="font-gowunDodum text-sm leading-5 text-ink">
+                (필수){' '}
+                <Text
+                  className="font-bold text-primary underline"
+                  onPress={() => setLegalDoc(TERMS_OF_SERVICE)}
+                >
+                  서비스 이용약관
+                </Text>
+                {' 및 '}
+                <Text
+                  className="font-bold text-primary underline"
+                  onPress={() => setLegalDoc(PRIVACY_POLICY)}
+                >
+                  개인정보 처리방침
+                </Text>
+                에{'\n'}동의합니다.
+              </Text>
+            </Checkbox>
           </View>
 
           {/* 서버 에러 메시지 */}
           {serverError ? (
-            <Text className="mt-2 text-sm text-red-500">{serverError}</Text>
+            <Text className="font-gowunDodum mt-2 text-sm text-red-500">{serverError}</Text>
           ) : null}
 
           {/* 가입 버튼 (약관 미동의 시 비활성화) */}
@@ -233,14 +251,14 @@ export default function SignupScreen() {
             {loading ? (
               <ActivityIndicator color="white" />
             ) : (
-              <Text className="text-lg font-bold text-white">가입하기</Text>
+              <Text className="font-jua text-xl font-bold text-white">가입하기</Text>
             )}
           </Pressable>
 
           {/* 로그인 이동 */}
           <View className="mb-8 flex-row items-center justify-center">
             <Text className="text-sm text-ink-muted">이미 계정이 있으신가요?</Text>
-            
+
               <Pressable hitSlop={8} onPress={() => router.back()}>
                 <Text className="ml-1 text-sm font-bold text-primary underline">로그인</Text>
               </Pressable>
@@ -248,6 +266,13 @@ export default function SignupScreen() {
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
+
+      {/* 이용약관 / 개인정보 처리방침 바텀시트 */}
+      <LegalSheet
+        visible={!!legalDoc}
+        doc={legalDoc}
+        onClose={() => setLegalDoc(null)}
+      />
     </SafeAreaView>
   );
 }
