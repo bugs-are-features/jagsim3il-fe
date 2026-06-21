@@ -24,6 +24,7 @@ export default function ProfileEditScreen() {
 
   const [nickname, setNickname] = useState(user?.nickname || '');
   const [avatar, setAvatar] = useState(user?.avatar || null);
+  const [avatarAsset, setAvatarAsset] = useState(null);
   const [submitting, setSubmitting] = useState(false);
 
   const trimmed = nickname.trim();
@@ -45,7 +46,12 @@ export default function ProfileEditScreen() {
         quality: 0.8,
       });
       if (!result.canceled && result.assets?.length) {
-        setAvatar(result.assets[0].uri);
+        const asset = result.assets[0];
+        setAvatar(asset.uri);
+        setAvatarAsset({
+          fileName: asset.fileName,
+          mimeType: asset.mimeType,
+        });
       }
     } catch (e) {
       Alert.alert('오류', e?.message || '이미지를 불러오지 못했어요.');
@@ -55,7 +61,11 @@ export default function ProfileEditScreen() {
   const handleSave = async () => {
     if (!canSave) return;
     setSubmitting(true);
-    const res = await updateProfile({ nickname: trimmed, avatar });
+    const res = await updateProfile({
+      nickname: trimmed,
+      avatar,
+      avatarAsset,
+    });
     setSubmitting(false);
     if (res.ok) {
       router.back();

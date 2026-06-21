@@ -73,7 +73,7 @@ export default function SettingsScreen() {
   };
 
   return (
-    <SafeAreaView className="flex-1 bg-gray-50" edges={['top', 'left', 'right']}>
+    <SafeAreaView className="flex-1 bg-gray-50" edges={['top', 'left', 'right', 'bottom']}>
       {/* 헤더 */}
       <View className="flex-row items-center px-4 py-2">
         <Pressable onPress={() => router.back()} hitSlop={10} className="p-1">
@@ -82,9 +82,12 @@ export default function SettingsScreen() {
         <Text className="font-jua ml-1 text-2xl text-ink">설정</Text>
       </View>
 
-      <ScrollView showsVerticalScrollIndicator={false}>
-        {/* 프로필 (회원 정보) */}
-        <View className="mb-3 flex-row items-center bg-white px-5 py-5">
+      <ScrollView className="flex-1" showsVerticalScrollIndicator={false}>
+        {/* 프로필 (회원 정보) — 탭 시 프로필 수정 */}
+        <Pressable
+          onPress={() => router.push('/profile-edit')}
+          className="mb-3 flex-row items-center bg-white px-5 py-5 active:bg-gray-50"
+        >
           {user?.avatar ? (
             <Image
               source={{ uri: user.avatar }}
@@ -111,7 +114,8 @@ export default function SettingsScreen() {
               </Text>
             ) : null}
           </View>
-        </View>
+          <Ionicons name="chevron-forward" size={18} color="#9CA3AF" />
+        </Pressable>
 
         {/* 계정 */}
         <Text className="font-jua px-5 pb-2 text-md font-semibold text-ink-faint">계정</Text>
@@ -140,21 +144,21 @@ export default function SettingsScreen() {
         {/* 기타 */}
         <Text className="font-jua px-5 pb-2 text-md font-semibold text-ink-faint">기타</Text>
         <View className="mb-3">
-          <SettingRow icon="information-circle-outline" label="버전" value="1.0.0" right={
-            <Text className="font-gowunDodum text-sm text-ink-faint">1.0.0</Text>
-          } />
-          <View className="h-px bg-gray-100" />
           <SettingRow icon="document-text-outline" label="이용약관" onPress={() => router.push('/terms')} />
         </View>
 
         {/* 로그아웃 */}
         <Pressable
           onPress={handleLogout}
-          className="mx-5 mb-10 mt-2 items-center rounded-xl border border-red-200 bg-white py-4"
+          className="mx-5 mb-6 mt-2 items-center rounded-xl border border-red-200 bg-white py-4"
         >
           <Text className="font-jua text-lg text-red-500">로그아웃</Text>
         </Pressable>
       </ScrollView>
+
+      <Text className="font-gowunDodum px-5 pb-1 text-right text-xs text-ink-faint">
+        v0.0.0
+      </Text>
     </SafeAreaView>
   );
 }

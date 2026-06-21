@@ -2,7 +2,15 @@
 // 백엔드: https://jagsim3il.szk.kr  (Swagger: /docs)
 // 모든 응답은 ApiResponse 봉투 { code, message, data } 형태이며,
 // client.request()가 data만 반환하고 실패 시 message로 throw 합니다.
-import { request } from './client';
+import { request, BASE_URL } from './client';
+
+// DB에 path만 저장된 profile_url을 앱에서 쓸 full URL로 변환
+function resolveProfileUrl(url) {
+  if (!url || typeof url !== 'string') return null;
+  if (/^https?:\/\//i.test(url)) return url;
+  if (url.startsWith('/')) return `${BASE_URL}${url}`;
+  return url;
+}
 
 // 백엔드 user 응답을 앱 공통 형태로 정규화한다.
 // 백엔드 필드명이 확정 전이라 가능한 키들을 폭넓게 매핑한다.
@@ -19,8 +27,9 @@ export function normalizeUser(raw) {
     // 이메일
     email: raw.email ?? null,
     // 프로필 이미지(없을 수 있음). 백엔드는 profile_url 키 사용.
-    avatar:
-      raw.avatar ?? raw.profile_url ?? raw.profile_image ?? raw.profileImage ?? null,
+    avatar: resolveProfileUrl(
+      raw.avatar ?? raw.profile_url ?? raw.profile_image ?? raw.profileImage ?? null
+    ),
     // 원본 보관(추가 필드 필요 시 참조)
     raw,
   };
@@ -70,16 +79,53 @@ export async function getMeRequest(token) {
   return normalizeUser(data);
 }
 
-// 프로필 수정
-// API: PATCH /api/v1/user  (Bearer 인증)  ⚠️ 엔드포인트/키는 백엔드 확정 시 조정
-// request:  { alias?(닉네임) }
-// response data: 갱신된 사용자 객체(없을 수 있음) → 정규화해 반환
+// 닉네임 수정
+// API: PATCH /api/v1/user/profile  (Bearer 인증)
+// request:  { alias: string }
+// response data: 갱신된 UserDto (profile_url은 full URL)
 export async function updateProfileRequest(token, { alias } = {}) {
   const body = {};
   if (alias != null) body.alias = alias;
-  const data = await request('PATCH', '/api/v1/user', { token, body });
+  const data = await request('PATCH', '/api/v1/user/profile', { token, body });
   return normalizeUser(data);
 }
+
+// 로컬 파일 URI 여부 (갤러리/카메라 picker 결과)
+function isLocalFileUri(uri) {
+  if (!uri || typeof uri !== 'string') return false;
+  return !/^https?:\/\//i.test(uri);
+}
+
+// expo-image-picker 결과 → multipart 업로드용 file 객체
+export function buildProfileImageFile(uri, asset = {}) {
+  const cleanUri = uri.split('?')[0];
+  const uriExt = (cleanUri.split('.').pop() || '').toLowerCase();
+  const allowed = ['jpg', 'jpeg', 'png', 'gif', 'webp'];
+  const ext = allowed.includes(uriExt) ? uriExt : 'jpg';
+  const name = asset.fileName || `profile_${Date.now()}.${ext}`;
+  const type =
+    asset.mimeType || `image/${ext === 'jpg' ? 'jpeg' : ext}`;
+  return { uri, name, type };
+}
+
+// 프로필 사진 업로드
+// API: POST /api/v1/user/profile/image  (Bearer 인증)
+// multipart/form-data, 필드명 file. 허용: jpg/jpeg/png/gif/webp (최대 5MB)
+// response data: UserDto 또는 profile full URL → 정규화해 반환
+export async function uploadProfileImageRequest(token, file) {
+  const form = new FormData();
+  form.append('file', file);
+  const data = await request('POST', '/api/v1/user/profile/image', {
+    token,
+    body: form,
+  });
+  if (typeof data === 'string') {
+    return normalizeUser({ profile_url: data });
+  }
+  return normalizeUser(data);
+}
+
+export { isLocalFileUri };
 
 // 회원가입
 // API: POST /api/v1/user/register

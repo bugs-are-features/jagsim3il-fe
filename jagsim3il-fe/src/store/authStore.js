@@ -5,6 +5,9 @@ import {
   signupRequest,
   getMeRequest,
   updateProfileRequest,
+  uploadProfileImageRequest,
+  buildProfileImageFile,
+  isLocalFileUri,
   passwordReset as passwordResetRequest,
   logout as logoutRequest,
 } from '../api/auth';
@@ -79,23 +82,48 @@ export const useAuthStore = create((set, get) => ({
     }
   },
 
-  // 프로필 수정: { nickname?, avatar? }
-  // 닉네임은 백엔드에 PATCH로 반영하고, 아바타(로컬 uri)는 현재 로컬 상태에만 둔다
-  // (서버 업로드 엔드포인트가 아직 없음). 성공/실패를 { ok, message }로 반환.
-  updateProfile: async ({ nickname, avatar } = {}) => {
+  // 프로필 수정: { nickname?, avatar?, avatarAsset? }
+  // 닉네임 → PATCH /api/v1/user/profile
+  // 로컬 사진 → POST /api/v1/user/profile/image (multipart)
+  // 성공/실패를 { ok, message }로 반환.
+  updateProfile: async ({ nickname, avatar, avatarAsset } = {}) => {
     const { token, user } = get();
+    if (!token) {
+      return { ok: false, message: '로그인이 필요합니다.' };
+    }
     set({ error: null });
     try {
-      const updated = await updateProfileRequest(token, { alias: nickname });
-      const nextNickname = nickname ?? updated?.nickname ?? user?.nickname ?? null;
+      const nicknameChanged =
+        nickname != null && nickname !== (user?.nickname ?? '');
+      const avatarChanged = avatar != null && avatar !== (user?.avatar ?? null);
+      let updated = null;
+
+      if (nicknameChanged) {
+        updated = await updateProfileRequest(token, { alias: nickname });
+      }
+
+      if (avatarChanged && isLocalFileUri(avatar)) {
+        const file = buildProfileImageFile(avatar, avatarAsset ?? {});
+        const uploaded = await uploadProfileImageRequest(token, file);
+        updated = { ...(updated || {}), ...(uploaded || {}) };
+      }
+
+      const nextNickname =
+        nickname ?? updated?.nickname ?? user?.nickname ?? null;
+      const nextAvatar =
+        updated?.avatar ??
+        (avatarChanged && !isLocalFileUri(avatar) ? avatar : null) ??
+        user?.avatar ??
+        null;
+
       set({
         user: {
           ...user,
           ...(updated || {}),
           nickname: nextNickname,
           alias: nextNickname,
-          avatar: avatar ?? updated?.avatar ?? user?.avatar ?? null,
-          // /user 응답엔 email이 없으므로 기존 값을 보존
+          avatar: nextAvatar,
+          // /user 응답엔 email이 없으므로 기존 value를 보존
           email: updated?.email ?? user?.email ?? null,
         },
       });
