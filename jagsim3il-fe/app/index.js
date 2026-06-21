@@ -129,15 +129,15 @@ export default function HomeScreen() {
           ListEmptyComponent={
             <View className="mt-20 items-center">
               <Ionicons name="albums-outline" size={48} color="#D1D5DB" />
-              <Text className="mt-3 text-ink-faint">아직 참여 중인 챌린지가 없어요</Text>
+              <Text className="font-gowunDodum mt-3 text-ink-faint">아직 참여 중인 챌린지가 없어요</Text>
               <Pressable
                 onPress={() => setModalVisible(true)}
                 className="mt-4 rounded-xl bg-primary px-5 py-3"
               >
-                <Text className="font-bold text-white">첫 챌린지 만들기</Text>
+                <Text className="font-jua text-white">첫 챌린지 만들기</Text>
               </Pressable>
               <Pressable onPress={() => setJoinVisible(true)} className="mt-3">
-                <Text className="font-bold text-primary">코드로 참여하기</Text>
+                <Text className="font-jua text-primary">코드로 참여하기</Text>
               </Pressable>
             </View>
           }
