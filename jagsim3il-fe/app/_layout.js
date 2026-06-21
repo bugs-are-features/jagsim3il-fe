@@ -9,6 +9,7 @@ import { useFonts, Jua_400Regular } from '@expo-google-fonts/jua';
 import { GowunDodum_400Regular } from '@expo-google-fonts/gowun-dodum';
 import { useAuthStore } from '../src/store/authStore';
 import { useOnboardingStore } from '../src/store/onboardingStore';
+import { usePushNotifications } from '../src/hooks/usePushNotifications';
 
 // 앱 전역 기본 폰트를 Gowun Dodum으로 지정한다.
 // 스타일 배열의 맨 앞에 두므로, 컴포넌트가 직접 지정한 폰트(font-jua 등)는 그대로 유지된다.
@@ -54,6 +55,8 @@ export default function RootLayout() {
   const hydrated = useOnboardingStore((s) => s.hydrated);
   const hasSeenOnboarding = useOnboardingStore((s) => s.hasSeenOnboarding);
   const hydrate = useOnboardingStore((s) => s.hydrate);
+
+  usePushNotifications();
 
   // 타이틀 및 본문 폰트 로드
   const [fontsLoaded] = useFonts({

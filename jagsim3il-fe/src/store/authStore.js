@@ -11,6 +11,7 @@ import {
   passwordReset as passwordResetRequest,
   logout as logoutRequest,
 } from '../api/auth';
+import { registerPushToken, unregisterPushToken } from '../services/pushNotifications';
 
 export const useAuthStore = create((set, get) => ({
   // state
@@ -29,6 +30,7 @@ export const useAuthStore = create((set, get) => ({
       const { token, user } = await loginRequest({ identifier, pw });
       if (!token) throw new Error('로그인에 실패했습니다.');
       set({ user, token, isAuthenticated: true, loading: false });
+      registerPushToken(token); // 로그인 직후 푸시 토큰 등록
       return true;
     } catch (e) {
       set({ error: e.message, loading: false });
@@ -155,6 +157,7 @@ export const useAuthStore = create((set, get) => ({
     let result = { ok: true, message: '로그아웃되었습니다.' };
     try {
       if (token) {
+        await unregisterPushToken(token); // 로그아웃 시 해당 기기 토큰 삭제
         const message = await logoutRequest(token);
         if (message) result = { ok: true, message };
       }

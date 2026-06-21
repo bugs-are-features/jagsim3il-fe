@@ -1,7 +1,7 @@
 {
   "expo": {
     "name": "jagsim3il-fe",
-    "slug": "jagsim3il-fe",
+    "slug": "jagsim3il-bugsarefeatures",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/coin-badge-1024.png",
@@ -9,7 +9,12 @@
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "infoPlist": {
+        "UIBackgroundModes": [
+          "remote-notification"
+        ]
+      }
     },
     "android": {
       "adaptiveIcon": {
@@ -17,7 +22,14 @@
         "foregroundImage": "./assets/images/coin-badge-1024.png"
       },
       "edgeToEdgeEnabled": true,
-      "predictiveBackGestureEnabled": false
+      "predictiveBackGestureEnabled": false,
+      "permissions": [
+        "android.permission.RECORD_AUDIO",
+        "android.permission.CAMERA",
+        "android.permission.RECORD_AUDIO",
+        "android.permission.CAMERA"
+      ],
+      "package": "com.leegeonhee.jagsim3ilbugsarefeatures"
     },
     "web": {
       "output": "static",
@@ -52,11 +64,27 @@
           "cameraPermission": "작심삼일이 인증 촬영을 할 수 있도록 카메라 접근을 허용해 주세요.",
           "microphonePermission": "작심삼일이 동영상 인증을 촬영할 수 있도록 마이크 접근을 허용해 주세요."
         }
+      ],
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/images/coin-badge-256.png",
+          "color": "#FF6A3D",
+          "defaultChannel": "default",
+          "enableBackgroundRemoteNotifications": true
+        }
       ]
     ],
     "experiments": {
       "typedRoutes": false,
       "reactCompiler": true
-    }
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "383fffe4-06fb-4698-9246-e8afadb98f15"
+      }
+    },
+    "owner": "leegeonhee"
   }
 }

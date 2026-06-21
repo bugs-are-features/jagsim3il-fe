@@ -4,6 +4,12 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuthStore } from '../src/store/authStore';
+import {
+  getPushNotificationsEnabled,
+  setPushNotificationsEnabled,
+  registerPushToken,
+  unregisterPushToken,
+} from '../src/services/pushNotifications';
 
 function SettingRow({ icon, label, value, onPress, right }) {
   return (
@@ -30,16 +36,43 @@ function SettingRow({ icon, label, value, onPress, right }) {
 export default function SettingsScreen() {
   const router = useRouter();
   const user = useAuthStore((s) => s.user);
+  const token = useAuthStore((s) => s.token);
   const logout = useAuthStore((s) => s.logout);
   const loadMe = useAuthStore((s) => s.loadMe);
   const passwordReset = useAuthStore((s) => s.passwordReset);
 
   const [pushEnabled, setPushEnabled] = useState(true);
+  const [pushLoading, setPushLoading] = useState(false);
 
   // 회원 정보가 비어 있으면 토큰으로 다시 조회
   useEffect(() => {
     loadMe();
   }, [loadMe]);
+
+  // 저장된 푸시 알림 ON/OFF 설정 불러오기
+  useEffect(() => {
+    getPushNotificationsEnabled().then(setPushEnabled);
+  }, []);
+
+  const handlePushToggle = async (next) => {
+    if (pushLoading) return;
+    setPushLoading(true);
+    setPushEnabled(next);
+    await setPushNotificationsEnabled(next);
+
+    if (next) {
+      const res = await registerPushToken(token);
+      if (!res.ok && res.reason === 'no_token') {
+        Alert.alert(
+          '알림 권한 필요',
+          '푸시 알림을 받으려면 기기 설정에서 알림 권한을 허용해 주세요.'
+        );
+      }
+    } else {
+      await unregisterPushToken(token);
+    }
+    setPushLoading(false);
+  };
 
   const handleLogout = () => {
     Alert.alert('로그아웃', '정말 로그아웃 하시겠어요?', [
@@ -134,7 +167,8 @@ export default function SettingsScreen() {
             right={
               <Switch
                 value={pushEnabled}
-                onValueChange={setPushEnabled}
+                onValueChange={handlePushToggle}
+                disabled={pushLoading}
                 trackColor={{ false: '#D1D5DB', true: '#FF6A3D' }}
                 thumbColor="#FFFFFF"
                 ios_backgroundColor="#D1D5DB"
